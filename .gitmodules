@@ -1,0 +1,15 @@
+[submodule "packages/evm-contracts/lib/forge-std"]
+	path = packages/evm-contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "packages/evm-contracts/lib/superfluid-protocol-monorepo"]
+	path = packages/evm-contracts/lib/superfluid-protocol-monorepo
+	url = https://github.com/superfluid-finance/protocol-monorepo
+[submodule "packages/evm-contracts/lib/openzeppelin-contracts"]
+	path = packages/evm-contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "packages/evm-contracts/lib/uniswap-v3-core"]
+	path = packages/evm-contracts/lib/uniswap-v3-core
+	url = https://github.com/Uniswap/v3-core.git
+[submodule "packages/evm-contracts/lib/uniswap-v3-periphery"]
+	path = packages/evm-contracts/lib/uniswap-v3-periphery
+	url = https://github.com/Uniswap/v3-periphery.git
