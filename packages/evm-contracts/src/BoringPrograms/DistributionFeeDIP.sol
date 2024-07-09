@@ -18,17 +18,18 @@ import { DistributionFeeManager } from "./DistributionFeeManager.sol";
  *
  * Note:
  * 1. For each trader on a TOREX, the program tracks who is the distributor for the trade.
- * 2. For each in-token where multiple TOREXes may apply,the program tracks total volume and total flow rate facilitated
- *    by each distributor. The summation stats of all distributors is called the totality stats.
+ * 2. For each TOREX,the program tracks total volume and total flow rate facilitated by each distributor. The summation
+      stats of all distributors is called the totality stats.
  * 3. On top of pool units distributor to stakers, the program applies a tax in the form of pool units distributing to
- *    the DistributionFeeManager contract.
+ *    the DistributionFeeManager contract. The will further divide the fees among distributors with its own logic,
+ *    usually by reading distribution stats provided by this program.
  */
 library DistributionFeeDIP {
     /// This is a pseudo distributor address for tracking totality stats.
     address constant private _PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS = address(1);
 
     /// Distribution tax rate of the total in token fee.
-    uint256 constant internal DISTRIBUTION_TAX_RATE_PM = 22_0000; // 22%
+    uint256 constant internal DISTRIBUTION_TAX_RATE_PM = 90_0000; // 90%, high tax for the early development phase
 
     /// An event to track distributor changes.
     event DistributorUpdated(ITorex indexed torex, address trader,
@@ -79,10 +80,12 @@ library DistributionFeeDIP {
     function adjustDistributionFeeUnits(DistributionFeeManager manager, ITorex torex) internal
     {
         ISuperfluidPool pool = torex.feeDistributionPool();
-        uint128 tu = pool.getTotalUnits();
-        uint128 oldUnits = pool.getUnits(address(manager));
-        uint128 newUnits = SafeCast.toUint128((tu - oldUnits) * DISTRIBUTION_TAX_RATE_PM / UINT_100PCT_PM);
-        pool.updateMemberUnits(address(manager), newUnits);
+        uint128 tu = pool.getTotalUnits(); // total units
+        uint128 mu = pool.getUnits(address(manager)); // manager units
+        uint128 su = tu - mu; // staker units
+        // apply distribution tax over new total units
+        uint128 newTu = SafeCast.toUint128(su * UINT_100PCT_PM / (UINT_100PCT_PM - DISTRIBUTION_TAX_RATE_PM));
+        pool.updateMemberUnits(address(manager), newTu - su /* new manager units */);
     }
 
     /// Get the current distributor for the trader.

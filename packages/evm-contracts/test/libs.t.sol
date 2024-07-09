@@ -5,10 +5,7 @@ import { Test, console } from "forge-std/Test.sol";
 import { DiscountFactor, getDiscountFactor, getDiscountedValue } from "../src/libs/DiscountFactor.sol";
 
 
-contract LibsTest is Test {
-    // Testing DiscountFactor
-    //
-
+contract DiscountFactorTest is Test {
     function testZeroDiscountFactor(uint128 x, uint32 t) external {
         DiscountFactor zf = DiscountFactor.wrap(0);
         assertEq(getDiscountedValue(zf, x, 0), x);
@@ -42,3 +39,4 @@ contract LibsTest is Test {
         assertTrue((x0 - x1) < x * 5/1000, "Discount model predictability 2");
     }
 }
+

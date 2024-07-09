@@ -7,7 +7,7 @@ import { Scaler } from "../src/libs/Scaler.sol";
 import { getDiscountFactor } from "../src/libs/DiscountFactor.sol";
 import { SuperTokenV1Library } from "../src/libs/SuperTokenExtra.sol";
 import { Torex, TorexCore, ISuperToken, ISuperfluidPool } from "../src/Torex.sol";
-import { TorexFactory } from "../src/TorexFactory.sol";
+import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
 import { UnbridledX, TorexMetadata, LiquidityMoveResult } from "../src/UnbridledX.sol";
 
 import { TorexTest } from "./TestCommon.sol";
@@ -22,15 +22,19 @@ contract UnbridledXHarness is UnbridledX {
 }
 
 contract UnbridledTorexTest is TorexTest {
-    TorexFactory      internal immutable _torexFactory = new TorexFactory();
     UnbridledXHarness internal immutable _unbridledX   = new UnbridledXHarness();
+    TorexFactory      internal _torexFactory;
+
+    constructor() {
+        _torexFactory = createTorexFactory();
+    }
 
     function _createDefaultConfig() override internal returns (Torex.Config memory config) {
         config = super._createDefaultConfig();
         config.controller = _unbridledX;
     }
 
-    function _registerTorex(Torex torex, int256 inTokenFeePM, address inTokenFeeDest) internal {
+    function _registerTorex(Torex torex, uint256 inTokenFeePM, address inTokenFeeDest) internal {
         _expectedFeePM = inTokenFeePM;
         _unbridledX.registerTorex(torex, inTokenFeePM, inTokenFeeDest);
     }
@@ -515,11 +519,11 @@ contract UnbridledOtherTorexTest is UnbridledTorexTest {
         ISuperfluidPool outTokenPool = _torex.outTokenDistributionPool();
 
         assertEq(outTokenPool.getUnits(alice),
-                 uint256((scaler.scaleValue(fr1 - fr1 * _expectedFeePM  / 1e6))),
+                 uint256((scaler.scaleValue(fr1 - fr1 * int256(_expectedFeePM)  / 1e6))),
                  "Unexpected alice' outTokenDistributionPool units");
 
         assertEq(outTokenPool.getUnits(bob),
-                 uint256(scaler.scaleValue(fr2 - fr2 * _expectedFeePM / 1e6)),
+                 uint256(scaler.scaleValue(fr2 - fr2 * int256(_expectedFeePM) / 1e6)),
                  "Unexpected bob' outTokenDistributionPool units");
 
         assertEq(uint256(outTokenPool.getTotalUnits()),
@@ -546,8 +550,8 @@ contract UnbridledOtherTorexTest is UnbridledTorexTest {
         }
     }
 
-    function testMaxFeeProtection(int256 a, uint80 r) public {
-        int256 feePM = int256(bound(a, MAX_IN_TOKEN_FEE_PM, type(int16).max)); // [max, 32.767%]
+    function testMaxFeeProtection(uint256 a, uint80 r) public {
+        uint256 feePM = uint256(bound(a, MAX_IN_TOKEN_FEE_PM, type(uint16).max)); // [max, ~65.5%]
 
         _torex = new Torex(_createDefaultConfig());
 
@@ -556,7 +560,7 @@ contract UnbridledOtherTorexTest is UnbridledTorexTest {
         _doChangeFlow(_toTester(0), int96(uint96(r)));
         int96 feeFlowRate = _torex.getTraderState(_toTester(0)).feeFlowRate;
 
-        assertLe(feeFlowRate, int256(uint256(r)) * MAX_IN_TOKEN_FEE_PM / 1e6,
+        assertLe(feeFlowRate, int256(uint256(r)) * int256(MAX_IN_TOKEN_FEE_PM) / 1e6,
                  "Trader got scammed!");
     }
 }

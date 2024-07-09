@@ -12,15 +12,14 @@
     "lint": "solhint -w 0 `find script src test -name '*.sol' ! -name '.*'`",
     "build": "forge build",
     "dev": "npm run test-tdd -- --watch",
-    "test": "forge test -vv",
-    "coverage": "forge coverage",
     "test-tdd": "FOUNDRY_PROFILE=tdd forge test",
+    "test-ci": "FOUNDRY_PROFILE=ci forge test -vv",
+    "test-coverage": "FOUNDRY_PROFILE=coverage forge coverage",
     "generate-types": "wagmi generate"
   },
   "devDependencies": {
     "@wagmi/cli": "^1.5.2",
-    "bun-types": "latest",
-    "solhint": "^4.5.4"
+    "bun-types": "latest"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

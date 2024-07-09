@@ -15,6 +15,8 @@ import { SleepPod, createSleepPod } from "./SleepPod.sol";
 
 /**
  * @title The initial staking program, where unstaked boring tokens are locked in the "sleep pods".
+ *
+ * This is built on top of the basic stacking TIP, by always using staker's sleep pod's staking balance.
  */
 library InitialStakingTIP {
     /// The storage used by the library.

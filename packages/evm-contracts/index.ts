@@ -264,7 +264,8 @@ export const cfAv1ForwarderConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xc19e31c910737C3A0F72b0526e491dDfB359fD7A)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x750c3e12f26a998244ca9c95d300cc20f4dfb485)
  */
 export const distributionFeeManagerABI = [
   {
@@ -440,14 +441,17 @@ export const distributionFeeManagerABI = [
 ] as const
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xc19e31c910737C3A0F72b0526e491dDfB359fD7A)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x750c3e12f26a998244ca9c95d300cc20f4dfb485)
  */
 export const distributionFeeManagerAddress = {
-  42220: '0xc19e31c910737C3A0F72b0526e491dDfB359fD7A',
+  8453: '0xFdAd7082C6d2e07dD232be252bfD65841Ea1C83C',
+  42220: '0x750c3E12F26A998244ca9c95d300Cc20F4Dfb485',
 } as const
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xc19e31c910737C3A0F72b0526e491dDfB359fD7A)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x750c3e12f26a998244ca9c95d300cc20f4dfb485)
  */
 export const distributionFeeManagerConfig = {
   address: distributionFeeManagerAddress,
@@ -459,7 +463,8 @@ export const distributionFeeManagerConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x1785d12f7aba1134552c136886814f6c5aac2b97)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x14a201a50b3ffc7ca9851dd137aa47ff33924025)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x89795bb9aed5fa4c5c91815bb28db790ea7933c9)
  */
 export const emissionTreasuryABI = [
   {
@@ -531,6 +536,26 @@ export const emissionTreasuryABI = [
     outputs: [{ name: 'emissionRate', internalType: 'int96', type: 'int96' }],
   },
   {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [
+      { name: 'emissionTarget', internalType: 'address', type: 'address' },
+      { name: 'member', internalType: 'address', type: 'address' },
+    ],
+    name: 'getMemberEmissionRate',
+    outputs: [{ name: 'emissionRate', internalType: 'int96', type: 'int96' }],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [
+      { name: 'emissionTarget', internalType: 'address', type: 'address' },
+      { name: 'member', internalType: 'address', type: 'address' },
+    ],
+    name: 'getMemberEmissionUnits',
+    outputs: [{ name: 'units', internalType: 'uint128', type: 'uint128' }],
+  },
+  {
     stateMutability: 'nonpayable',
     type: 'function',
     inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
@@ -590,7 +615,7 @@ export const emissionTreasuryABI = [
       { name: 'member', internalType: 'address', type: 'address' },
       { name: 'units', internalType: 'uint128', type: 'uint128' },
     ],
-    name: 'updateEmissionUnits',
+    name: 'updateMemberEmissionUnits',
     outputs: [],
   },
   {
@@ -686,14 +711,17 @@ export const emissionTreasuryABI = [
 ] as const
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x1785d12f7aba1134552c136886814f6c5aac2b97)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x14a201a50b3ffc7ca9851dd137aa47ff33924025)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x89795bb9aed5fa4c5c91815bb28db790ea7933c9)
  */
 export const emissionTreasuryAddress = {
-  42220: '0x1785d12f7aBa1134552C136886814f6c5Aac2b97',
+  8453: '0x14a201A50b3FFC7ca9851DD137Aa47fF33924025',
+  42220: '0x89795Bb9AEd5Fa4c5c91815Bb28DB790eA7933C9',
 } as const
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x1785d12f7aba1134552c136886814f6c5aac2b97)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x14a201a50b3ffc7ca9851dd137aa47ff33924025)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x89795bb9aed5fa4c5c91815bb28db790ea7933c9)
  */
 export const emissionTreasuryConfig = {
   address: emissionTreasuryAddress,
@@ -2825,6 +2853,17 @@ export const isethABI = [
     type: 'function',
     inputs: [
       { name: 'account', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'operationDowngradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [
+      { name: 'account', internalType: 'address', type: 'address' },
       { name: 'spender', internalType: 'address', type: 'address' },
       { name: 'addedValue', internalType: 'uint256', type: 'uint256' },
     ],
@@ -2863,6 +2902,17 @@ export const isethABI = [
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'operationUpgrade',
+    outputs: [],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [
+      { name: 'account', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'operationUpgradeTo',
     outputs: [],
   },
   {
@@ -3636,7 +3686,8 @@ export const isethABI = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x2112b92a4f6496b7b2f10850857ffa270464d054)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
  */
 export const iSuperTokenABI = [
   {
@@ -4010,6 +4061,17 @@ export const iSuperTokenABI = [
     type: 'function',
     inputs: [
       { name: 'account', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'operationDowngradeTo',
+    outputs: [],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [
+      { name: 'account', internalType: 'address', type: 'address' },
       { name: 'spender', internalType: 'address', type: 'address' },
       { name: 'addedValue', internalType: 'uint256', type: 'uint256' },
     ],
@@ -4048,6 +4110,17 @@ export const iSuperTokenABI = [
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'operationUpgrade',
+    outputs: [],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [
+      { name: 'account', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'operationUpgradeTo',
     outputs: [],
   },
   {
@@ -4803,14 +4876,17 @@ export const iSuperTokenABI = [
 ] as const
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x2112b92a4f6496b7b2f10850857ffa270464d054)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
  */
 export const iSuperTokenAddress = {
+  8453: '0x2112b92A4f6496B7b2f10850857FfA270464d054',
   42220: '0x6C210F071c7246C452CAC7F8BaA6dA53907BbaE1',
 } as const
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x2112b92a4f6496b7b2f10850857ffa270464d054)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
  */
 export const iSuperTokenConfig = {
   address: iSuperTokenAddress,
@@ -5045,7 +5121,7 @@ export const iSuperfluidABI = [
     ],
   },
   {
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
     inputs: [
       {
@@ -5919,6 +5995,11 @@ export const iSuperfluidPoolABI = [
   {
     type: 'error',
     inputs: [],
+    name: 'SUPERFLUID_POOL_SELF_TRANSFER_NOT_ALLOWED',
+  },
+  {
+    type: 'error',
+    inputs: [],
     name: 'SUPERFLUID_POOL_TRANSFER_UNITS_NOT_ALLOWED',
   },
 ] as const
@@ -5928,7 +6009,8 @@ export const iSuperfluidPoolABI = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xe900226acd75ec9eb0b5b7504692486d7d23b9d3)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x37d607bd9dfff80acf37184c1f27e88388914262)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xaca744453c178f3d651e06a3459e2f242aa01789)
  */
 export const superBoringABI = [
   {
@@ -5955,6 +6037,24 @@ export const superBoringABI = [
         internalType: 'contract DistributionFeeManager',
         type: 'address',
       },
+      {
+        name: 'sleepPodBeacon_',
+        internalType: 'contract UpgradeableBeacon',
+        type: 'address',
+      },
+      {
+        name: 'config',
+        internalType: 'struct SuperBoring.Config',
+        type: 'tuple',
+        components: [
+          { name: 'inTokenFeePM', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'minimumStakingAmount',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+        ],
+      },
     ],
   },
   {
@@ -5969,7 +6069,14 @@ export const superBoringABI = [
     type: 'function',
     inputs: [],
     name: 'IN_TOKEN_FEE_PM',
-    outputs: [{ name: '', internalType: 'int256', type: 'int256' }],
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [],
+    name: 'MINIMUM_STAKING_AMOUNT',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
   },
   {
     stateMutability: 'view',
@@ -5990,6 +6097,13 @@ export const superBoringABI = [
   {
     stateMutability: 'nonpayable',
     type: 'function',
+    inputs: [],
+    name: 'castrate',
+    outputs: [],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
     inputs: [
       {
         name: 'torexConfig',
@@ -6027,7 +6141,12 @@ export const superBoringABI = [
             internalType: 'contract ITorexController',
             type: 'address',
           },
-          { name: 'maxAllowedFeePM', internalType: 'int256', type: 'int256' },
+          {
+            name: 'controllerSafeCallbackGasLimit',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'maxAllowedFeePM', internalType: 'uint256', type: 'uint256' },
         ],
       },
       { name: 'feePoolScalerN10Pow', internalType: 'int8', type: 'int8' },
@@ -6043,12 +6162,6 @@ export const superBoringABI = [
     type: 'function',
     inputs: [
       {
-        name: 'uniV3Pool',
-        internalType: 'contract IUniswapV3Pool',
-        type: 'address',
-      },
-      { name: 'inverseOrder', internalType: 'bool', type: 'bool' },
-      {
         name: 'torexConfig',
         internalType: 'struct Torex.Config',
         type: 'tuple',
@@ -6084,34 +6197,26 @@ export const superBoringABI = [
             internalType: 'contract ITorexController',
             type: 'address',
           },
-          { name: 'maxAllowedFeePM', internalType: 'int256', type: 'int256' },
+          {
+            name: 'controllerSafeCallbackGasLimit',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'maxAllowedFeePM', internalType: 'uint256', type: 'uint256' },
         ],
       },
       { name: 'feePoolScalerN10Pow', internalType: 'int8', type: 'int8' },
       { name: 'boringPoolScalerN10Pow', internalType: 'int8', type: 'int8' },
+      {
+        name: 'uniV3Pool',
+        internalType: 'contract IUniswapV3Pool',
+        type: 'address',
+      },
+      { name: 'inverseOrder', internalType: 'bool', type: 'bool' },
     ],
     name: 'createUniV3PoolTwapObserverAndTorex',
     outputs: [
       { name: 'torex', internalType: 'contract Torex', type: 'address' },
-    ],
-  },
-  {
-    stateMutability: 'view',
-    type: 'function',
-    inputs: [],
-    name: 'debugInfoQE',
-    outputs: [
-      { name: 'targetTotalEmissionRate', internalType: 'int96', type: 'int96' },
-      { name: 'qqSum', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'torexMetadata',
-        internalType: 'struct SuperBoring.TorexQEMetadata[]',
-        type: 'tuple[]',
-        components: [
-          { name: 'torex', internalType: 'contract ITorex', type: 'address' },
-          { name: 'q', internalType: 'uint256', type: 'uint256' },
-        ],
-      },
     ],
   },
   {
@@ -6213,6 +6318,15 @@ export const superBoringABI = [
   {
     stateMutability: 'view',
     type: 'function',
+    inputs: [],
+    name: 'getCodeAddress',
+    outputs: [
+      { name: 'codeAddress', internalType: 'address', type: 'address' },
+    ],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
     inputs: [
       { name: 'torex', internalType: 'contract ITorex', type: 'address' },
       { name: 'trader', internalType: 'address', type: 'address' },
@@ -6221,6 +6335,16 @@ export const superBoringABI = [
     outputs: [
       { name: 'distributor', internalType: 'address', type: 'address' },
     ],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [
+      { name: 'torex', internalType: 'contract ITorex', type: 'address' },
+      { name: 'trader', internalType: 'address', type: 'address' },
+    ],
+    name: 'getCurrentReferrer',
+    outputs: [{ name: 'referrer', internalType: 'address', type: 'address' }],
   },
   {
     stateMutability: 'view',
@@ -6240,19 +6364,22 @@ export const superBoringABI = [
     type: 'function',
     inputs: [
       { name: 'torex', internalType: 'contract ITorex', type: 'address' },
-      { name: 'distributor', internalType: 'address', type: 'address' },
     ],
-    name: 'getDistributorUnits',
-    outputs: [{ name: '', internalType: 'uint128', type: 'uint128' }],
+    name: 'getFeePoolScaler',
+    outputs: [{ name: 'scaler', internalType: 'Scaler', type: 'int256' }],
   },
   {
     stateMutability: 'view',
     type: 'function',
     inputs: [
       { name: 'torex', internalType: 'contract ITorex', type: 'address' },
+      { name: 'me', internalType: 'address', type: 'address' },
     ],
-    name: 'getFeePoolScaler',
-    outputs: [{ name: 'scaler', internalType: 'Scaler', type: 'int256' }],
+    name: 'getMyBoringRewardInfo',
+    outputs: [
+      { name: 'totalRewardRate', internalType: 'int96', type: 'int96' },
+      { name: 'tradingRewardRate', internalType: 'int96', type: 'int96' },
+    ],
   },
   {
     stateMutability: 'view',
@@ -6352,6 +6479,13 @@ export const superBoringABI = [
     outputs: [],
   },
   {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
+    name: 'initialize',
+    outputs: [],
+  },
+  {
     stateMutability: 'view',
     type: 'function',
     inputs: [
@@ -6412,6 +6546,13 @@ export const superBoringABI = [
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
   },
   {
+    stateMutability: 'pure',
+    type: 'function',
+    inputs: [],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+  },
+  {
     stateMutability: 'nonpayable',
     type: 'function',
     inputs: [],
@@ -6446,12 +6587,38 @@ export const superBoringABI = [
   {
     stateMutability: 'nonpayable',
     type: 'function',
+    inputs: [{ name: 'newAddress', internalType: 'address', type: 'address' }],
+    name: 'updateCode',
+    outputs: [],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
     inputs: [
       { name: 'torex', internalType: 'contract ITorex', type: 'address' },
       { name: 'newStakedAmount', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'updateStake',
     outputs: [],
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'uuid',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: false,
+      },
+      {
+        name: 'codeAddress',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'CodeUpdated',
   },
   {
     type: 'event',
@@ -6514,6 +6681,14 @@ export const superBoringABI = [
     type: 'event',
     anonymous: false,
     inputs: [
+      { name: 'version', internalType: 'uint8', type: 'uint8', indexed: false },
+    ],
+    name: 'Initialized',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
       {
         name: 'previousOwner',
         internalType: 'address',
@@ -6543,16 +6718,47 @@ export const superBoringABI = [
         name: 'trader',
         internalType: 'address',
         type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newTraderUnits',
+        internalType: 'uint128',
+        type: 'uint128',
         indexed: false,
       },
       {
         name: 'referrer',
         internalType: 'address',
         type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newReferralUnits',
+        internalType: 'uint128',
+        type: 'uint128',
         indexed: false,
       },
     ],
     name: 'ReferrerUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'staker',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'pod',
+        internalType: 'contract SleepPod',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'SleepPodCreated',
   },
   {
     type: 'event',
@@ -6592,19 +6798,23 @@ export const superBoringABI = [
     ],
     name: 'TorexCreated',
   },
+  { type: 'error', inputs: [], name: 'MINIMUM_STAKING_AMOUNT_REQUIRED' },
   { type: 'error', inputs: [], name: 'NO_SELF_REFERRAL' },
   { type: 'error', inputs: [], name: 'ONLY_REGISTERED_TOREX_ALLOWED' },
 ] as const
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xe900226acd75ec9eb0b5b7504692486d7d23b9d3)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x37d607bd9dfff80acf37184c1f27e88388914262)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xaca744453c178f3d651e06a3459e2f242aa01789)
  */
 export const superBoringAddress = {
-  42220: '0xe900226AcD75EC9Eb0B5B7504692486D7D23b9D3',
+  8453: '0x37D607BD9dfFf80acf37184c1F27E88388914262',
+  42220: '0xAcA744453C178F3D651e06A3459E2F242aa01789',
 } as const
 
 /**
- * [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xe900226acd75ec9eb0b5b7504692486d7d23b9d3)
+ * - [__View Contract on Base Basescan__](https://basescan.org/address/0x37d607bd9dfff80acf37184c1f27e88388914262)
+ * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xaca744453c178f3d651e06a3459e2f242aa01789)
  */
 export const superBoringConfig = {
   address: superBoringAddress,
@@ -6656,7 +6866,12 @@ export const torexABI = [
             internalType: 'contract ITorexController',
             type: 'address',
           },
-          { name: 'maxAllowedFeePM', internalType: 'int256', type: 'int256' },
+          {
+            name: 'controllerSafeCallbackGasLimit',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'maxAllowedFeePM', internalType: 'uint256', type: 'uint256' },
         ],
       },
     ],
@@ -6672,6 +6887,13 @@ export const torexABI = [
     stateMutability: 'view',
     type: 'function',
     inputs: [],
+    name: 'CONTROLLER_SAFE_CALLBACK_GAS_LIMIT',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [],
     name: 'HOST',
     outputs: [
       { name: '', internalType: 'contract ISuperfluid', type: 'address' },
@@ -6682,7 +6904,7 @@ export const torexABI = [
     type: 'function',
     inputs: [],
     name: 'MAX_ALLOWED_FEE_PM',
-    outputs: [{ name: '', internalType: 'int256', type: 'int256' }],
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
   },
   {
     stateMutability: 'view',
@@ -6805,6 +7027,13 @@ export const torexABI = [
     stateMutability: 'view',
     type: 'function',
     inputs: [],
+    name: 'controllerInternalErrorCounter',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [],
     name: 'debugCurrentDetails',
     outputs: [
       {
@@ -6891,7 +7120,12 @@ export const torexABI = [
             internalType: 'contract ITorexController',
             type: 'address',
           },
-          { name: 'maxAllowedFeePM', internalType: 'int256', type: 'int256' },
+          {
+            name: 'controllerSafeCallbackGasLimit',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'maxAllowedFeePM', internalType: 'uint256', type: 'uint256' },
         ],
       },
     ],
@@ -7026,6 +7260,14 @@ export const torexABI = [
     ],
     name: 'selfRegister',
     outputs: [],
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'reason', internalType: 'bytes', type: 'bytes', indexed: false },
+    ],
+    name: 'ControllerError',
   },
   {
     type: 'event',

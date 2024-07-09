@@ -18,7 +18,7 @@ import { EmissionTreasury } from "./EmissionTreasury.sol";
 
 
 /**
- * @dev Quadratic emission token-incentive program.
+ * @title Quadratic emission token-incentive program.
  *
  * Note:
  * 1. The program includes a quadratic emission mechanism for the TOREXes, where the more staked a TOREX is, the more
@@ -28,11 +28,15 @@ import { EmissionTreasury } from "./EmissionTreasury.sol";
 library QuadraticEmissionTIP {
     uint256 internal constant REFERRAL_BONUS = 5_0000; // 5% fixed referral bonus
 
-    event ReferrerUpdated(ITorex indexed torex, address trader, address referrer);
+    event ReferrerUpdated(ITorex indexed torex,
+                          address indexed trader, uint128 newTraderUnits,
+                          address indexed referrer, uint128 newReferralUnits);
 
     event EmissionUpdated(ITorex indexed torex, int96 emissionRate, uint256 q, uint256 qqSum);
 
-    /// Referral data packed to exact 1-word.
+    event TargetTotalEmissionRateUpdated(int96 targetTotalEmissionRate);
+
+    /// Referral data for each trader-referrer pair. It is packed to exact 1-word.
     struct ReferralData {
         address referrer;
         uint96  referrerUnits;
@@ -84,13 +88,9 @@ library QuadraticEmissionTIP {
 
     function listEnabledTorexes() internal view returns (ITorex[] memory torexes) {
         Storage storage $ = _getStorage();
-
-        uint256 n = EnumerableMap.length($.torexQs);
-        torexes = new ITorex[](n);
-        for (uint256 i = 0; i < n; ++i) {
-            (address torex, ) = EnumerableMap.at($.torexQs, i);
-            torexes[i] = ITorex(torex);
-        }
+        address[] memory keys = EnumerableMap.keys($.torexQs);
+        // solhint-disable-next-line no-inline-assembly
+        assembly { torexes := keys }
     }
 
     // @dev This hook updates the emission for torexes that are part of the QE program, quadratically.
@@ -129,8 +129,9 @@ library QuadraticEmissionTIP {
             uint128 newTraderUnits = scaleInTokenFlowRateToBoringPoolUnits(torex, newFlowRate);
             {
                 uint128 prevTraderUnits = scaleInTokenFlowRateToBoringPoolUnits(torex, prevFlowRate);
-                emissionTreasury.updateEmissionUnits(address(torex), trader,
-                                                     emissionPool.getUnits(trader) + newTraderUnits - prevTraderUnits);
+                emissionTreasury.updateMemberEmissionUnits(address(torex), trader,
+                                                           emissionPool.getUnits(trader)
+                                                           + newTraderUnits - prevTraderUnits);
             }
 
             // update referrer's reward
@@ -141,23 +142,23 @@ library QuadraticEmissionTIP {
                                                               * REFERRAL_BONUS / UINT_100PCT_PM);
                 if (oldRefData.referrer == referrer) { // this branch is a small optimization
                     // invariant: oldRefData.referrer != referrer != address(0)
-                    emissionTreasury.updateEmissionUnits(address(torex), referrer,
-                                                         emissionPool.getUnits(referrer)
-                                                         + newReferralUnits - oldRefData.referrerUnits);
+                    emissionTreasury.updateMemberEmissionUnits(address(torex), referrer,
+                                                               emissionPool.getUnits(referrer)
+                                                               + newReferralUnits - oldRefData.referrerUnits);
                 } else {
                     if (referrer != address(0)) {
-                        emissionTreasury.updateEmissionUnits(address(torex), referrer,
-                                                             emissionPool.getUnits(referrer)
-                                                             + newReferralUnits);
+                        emissionTreasury.updateMemberEmissionUnits(address(torex), referrer,
+                                                                   emissionPool.getUnits(referrer)
+                                                                   + newReferralUnits);
                     }
                     if (oldRefData.referrer != address(0)) {
-                        emissionTreasury.updateEmissionUnits(address(torex), oldRefData.referrer,
-                                                             emissionPool.getUnits(oldRefData.referrer)
-                                                             - oldRefData.referrerUnits);
+                        emissionTreasury.updateMemberEmissionUnits(address(torex), oldRefData.referrer,
+                                                                   emissionPool.getUnits(oldRefData.referrer)
+                                                                   - oldRefData.referrerUnits);
                     }
                 }
                 $.referrals[torex][trader] = ReferralData(referrer, toUint96(newReferralUnits));
-                emit ReferrerUpdated(torex, trader, referrer);
+                emit ReferrerUpdated(torex, trader, newTraderUnits, referrer, newReferralUnits);
             }
         }
     }
@@ -172,14 +173,15 @@ library QuadraticEmissionTIP {
 
     function updateTargetTotalEmissionRate(int96 r) internal {
         _getStorage().targetTotalEmissionRate = r;
+        emit TargetTotalEmissionRateUpdated(r);
     }
 
     // @dev This hook adjust the total emission rate to the torex flow senders.
     function adjustEmission(EmissionTreasury emissionTreasury, ITorex torex) internal {
+        int96 emissionRate = 0;
         if (isQEEnabledForTorex(torex)) {
             Storage storage $ = _getStorage();
             uint256 q = EnumerableMap.get($.torexQs, address(torex));
-            int96 emissionRate = 0;
 
             if ($.qqSum > 0) {
                 // if treasury is running out of budget in one week, set rate to zero to wind down the emissions
@@ -190,19 +192,11 @@ library QuadraticEmissionTIP {
                 }
             }
 
-            if (emissionTreasury.getEmissionRate(address(torex)) != emissionRate) {
-                emissionTreasury.updateEmissionRate(address(torex), emissionRate);
-            }
-
             emit EmissionUpdated(torex, emissionRate, q, $.qqSum);
+        } // else make sure emission rate goes to zero if a torex is removed from the program.
+
+        if (emissionTreasury.getEmissionRate(address(torex)) != emissionRate) {
+            emissionTreasury.updateEmissionRate(address(torex), emissionRate);
         }
-    }
-
-    function debugInfoQQSum() internal view returns (uint256 qqSum) {
-        return _getStorage().qqSum;
-    }
-
-    function debugInfoTorex(ITorex torex) internal view returns (uint256 qqSum) {
-        return EnumerableMap.get(_getStorage().torexQs, address(torex));
     }
 }

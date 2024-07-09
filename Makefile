@@ -1,5 +1,5 @@
-DEV_TARGETS = test-evm-contracts lint-evm-contracts
-TEST_FORGE_OPTS = "-vv"
+DEV_TARGETS = test-tdd-evm-contracts lint-evm-contracts
+TDD_FORGE_OPTS = "-vv"
 
 ################################################################################
 # Git Submodule Routines
@@ -7,15 +7,15 @@ TEST_FORGE_OPTS = "-vv"
 
 # https://faun.pub/git-submodule-cheatsheet-29a3bfe443c3
 
+submodule-init:
+	git submodule update --init --recursive
+
 submodule-update:
 	git submodule update --recursive
 
 submodule-sync:
 	git submodule update --remote --recursive
 	git submodule sync
-
-submodule-init:
-	git submodule update --init --recursive
 
 submodule-deinit:
 	git submodule deinit --all --force
@@ -39,10 +39,16 @@ lint: lint-evm-contracts
 lint-evm-contracts:
 	cd packages/evm-contracts && npm run lint
 
-test: test-evm-contracts
+test: test-ci-evm-contracts
 
-test-evm-contracts: build-evm-contracts
-	cd packages/evm-contracts && yarn test-tdd $(TEST_FORGE_OPTS)
+test-tdd-evm-contracts: build-evm-contracts
+	cd packages/evm-contracts && npm run test-tdd -- $(TDD_FORGE_OPTS)
+
+test-ci-evm-contracts: build-evm-contracts
+	cd packages/evm-contracts && npm run test-ci
+
+test-coverage-evm-contracts: build-evm-contracts
+	cd packages/evm-contracts && npm run test-coverage
 
 N_FUZZ_CONTRACT ?= SuperBoringTorexStatefulFuzzTest
 N_FUZZ_TEST ?= testStatefullFuzzComplete

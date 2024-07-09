@@ -26,7 +26,7 @@ contract UnbridledX is ITorexController, Ownable {
      ******************************************************************************************************************/
 
     struct TorexFeeConfig {
-        int256  inTokenFeePM;
+        uint256 inTokenFeePM;
         address inTokenFeeDest;
     }
 
@@ -59,7 +59,7 @@ contract UnbridledX is ITorexController, Ownable {
         }
     }
 
-    function registerTorex(ITorex torex, int256 inTokenFeePM, address inTokenFeeDest) external
+    function registerTorex(ITorex torex, uint256 inTokenFeePM, address inTokenFeeDest) external
         onlyOwner
         returns (bool)
     {
@@ -88,7 +88,7 @@ contract UnbridledX is ITorexController, Ownable {
         return _torexFeeConfigs[torex];
     }
 
-    function updateFeeConfig(ITorex torex, int256 inTokenFeePM, address inTokenFeeDest) external
+    function updateFeeConfig(ITorex torex, uint256 inTokenFeePM, address inTokenFeeDest) external
         onlyOwner
         returns (bool)
     {
@@ -120,7 +120,9 @@ contract UnbridledX is ITorexController, Ownable {
         onlyRegisteredTorex
         returns (int96 newFeeFlowRate)
     {
-        return toInt96(newFlowRate * _torexFeeConfigs[ITorex(msg.sender)].inTokenFeePM / INT_100PCT_PM);
+        return toInt96(newFlowRate
+                       * int256(_torexFeeConfigs[ITorex(msg.sender)].inTokenFeePM)
+                       / INT_100PCT_PM);
     }
 
     // @inheritdoc ITorexController

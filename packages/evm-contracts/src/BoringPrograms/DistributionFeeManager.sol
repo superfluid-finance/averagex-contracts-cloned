@@ -2,6 +2,7 @@
 pragma solidity 0.8.23;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { UUPSProxiable } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxiable.sol";
 import { UUPSProxy } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxy.sol";
@@ -10,11 +11,32 @@ import {
 } from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperTokenV1Library.sol";
 
 import { ITorex } from "../interfaces/torex/ITorex.sol";
+import { INT_100PCT_PM } from "../libs/MathExtra.sol";
+
 
 /// The program that uses the fee manager must provide this interface.
-interface IDistributorUnitsProvider {
-    /// Calculate pool units for the distributor according the program, based on their performance stats.
-    function getDistributorUnits(ITorex torex, address distributor) external view returns (uint128);
+interface IDistributorStatsProvider {
+    /// @dev Distributor stats of the torex.
+    /// @param torex Which torex the stats is for.
+    /// @param trader The distributor for the trader of this torex.
+    /// @return distributor The distributor that facilitated the trade for the trader.
+    function getCurrentDistributor(ITorex torex, address trader) external view
+        returns (address distributor);
+
+    /// @dev Distributor stats of the torex.
+    /// @param torex Which torex the stats is for.
+    /// @param distributor The distributor that stats is accounted for.
+    /// @return distributedVolume In-token distributed through the torex.
+    /// @return totalFlowRate     In-token flow rate to the torex.
+    function getDistributorStats(ITorex torex, address distributor) external view
+        returns (int256 distributedVolume, int96 totalFlowRate);
+
+    /// @dev Totality stats of the torex.
+    /// @param torex Which torex the stats is for.
+    /// @return distributedVolume In-token distributed through the torex.
+    /// @return totalFlowRate     In-token flow rate to the torex.
+    function getTotalityStats(ITorex torex) external view
+        returns (int256 distributedVolume, int96 totalFlowRate);
 }
 
 /**
@@ -36,6 +58,7 @@ contract DistributionFeeManager is UUPSProxiable, Ownable {
     mapping (ITorex => ISuperfluidPool) public pools;
 
     /// Synchronize a distributor performance stats for a specific torex.
+    /// This is permission-less, its effect independent of the caller, and idempotent within the same block.
     function sync(ITorex torex, address distributor) public {
         // ensure pool is created
         (ISuperToken inToken,) = torex.getPairedTokens();
@@ -56,7 +79,15 @@ contract DistributionFeeManager is UUPSProxiable, Ownable {
         inToken.claimAll(pool, distributor);
 
         // sync units based on distribution stats
-        uint128 units = IDistributorUnitsProvider(owner()).getDistributorUnits(torex, distributor);
+        uint128 units;
+        {
+            IDistributorStatsProvider p = IDistributorStatsProvider(owner());
+            (int256 dvol,) = p.getDistributorStats(torex, distributor);
+            (int256 tvol,) = p.getTotalityStats(torex);
+            if (tvol > 0) {
+                units = uint128(SafeCast.toUint256(dvol * INT_100PCT_PM / tvol));
+            }
+        }
         pool.updateMemberUnits(distributor, units);
 
         emit DistributorStatsSynced(torex, distributor, inToken, inTokenStored, units);
@@ -86,6 +117,7 @@ contract DistributionFeeManager is UUPSProxiable, Ownable {
     }
 }
 
+/// Create the distributor fee manager. !WARNING! It is uninitialized, operator must call .initialize(newOwner).
 function createDistributionFeeManager() returns (DistributionFeeManager r) {
     DistributionFeeManager logic = new DistributionFeeManager();
     logic.castrate();

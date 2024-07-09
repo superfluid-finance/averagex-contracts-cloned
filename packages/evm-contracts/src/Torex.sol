@@ -7,6 +7,7 @@ import {
     ISuperfluid, ISuperToken, ISuperfluidPool, PoolConfig
 } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import { CFASuperAppBase } from "@superfluid-finance/ethereum-contracts/contracts/apps/CFASuperAppBase.sol";
+import { CallbackUtils } from "@superfluid-finance/ethereum-contracts/contracts/libs/CallbackUtils.sol";
 import { SuperTokenV1Library } from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperTokenV1Library.sol";
 
 import { ITwapObserver } from "./interfaces/torex/ITwapObserver.sol";
@@ -14,7 +15,7 @@ import {
     LiquidityMoveResult, ITorexController, ITorex
 } from "./interfaces/torex/ITorex.sol";
 import { DiscountFactor } from "./libs/DiscountFactor.sol";
-import { toInt96, INT_100PCT_PM } from "../src/libs/MathExtra.sol";
+import { toInt96, UINT_100PCT_PM, INT_100PCT_PM } from "../src/libs/MathExtra.sol";
 import { Scaler } from "./libs/Scaler.sol";
 
 import { TorexCore } from "./TorexCore.sol";
@@ -34,12 +35,17 @@ import { TorexCore } from "./TorexCore.sol";
  *   controller controls the fee percent. Notably though, the TOREX protects its traders from rouge controller by having
  *   an immutable configuration of max allowed fee percent.
  *
- * TODO:
- *
- * - [] gas limit and error handling of controller.onInFlowChanged and controller.onLiquidityMoved to become truly
- *      robust and secure TOREX.
- *
  * CHANGELOG:
+ *
+ * [1.0.0-rc3] - 2024-06-25
+ *
+ * Added:
+ *
+ * - Controller hooks error handling with "safe callback" technique.
+ *
+ * Changes:
+ *
+ * - maxAllowedFeePM is now unsigned.
  *
  * [1.0.0-rc2] - 2024-04-12
  *
@@ -52,7 +58,7 @@ import { TorexCore } from "./TorexCore.sol";
  * - Torex uses SuperTokenV1Library.getGDAFlowInfo in _onInFlowChanged.
  */
 contract Torex is TorexCore, CFASuperAppBase, ITorex {
-    string public constant VERSION = "1.0.0-rc2";
+    string public constant VERSION = "1.0.0-rc3";
 
     using SuperTokenV1Library for ISuperToken;
 
@@ -69,7 +75,8 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
         Scaler twapScaler;
         Scaler outTokenDistributionPoolScaler;
         ITorexController controller;
-        int256 maxAllowedFeePM;
+        uint256 controllerSafeCallbackGasLimit;
+        uint256 maxAllowedFeePM;
     }
 
     /// Trader state.
@@ -91,12 +98,18 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
                            int96 newFlowRate, int96 newContribFlowRate, int256 backAdjustment,
                            int96 requestedFeeDistFlowRate, int96 actualFeeDistFlowRate);
 
+    /// Controller error event.
+    event ControllerError(bytes reason);
+
     /*******************************************************************************************************************
      * Configurations and Constructor
      ******************************************************************************************************************/
 
+    /// Gas limit used for safe callbacks to the controller.
+    uint256 public immutable CONTROLLER_SAFE_CALLBACK_GAS_LIMIT;
+
     /// Maximum fee (in Per Millions) allowed from the controller, in case of rogue controller.
-    int256 public immutable MAX_ALLOWED_FEE_PM;
+    uint256 public immutable MAX_ALLOWED_FEE_PM;
 
     /// @inheritdoc ITorex
     ITorexController public override immutable controller;
@@ -114,6 +127,7 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
             twapScaler: _twapScaler,
             discountFactor: _discountFactor,
             outTokenDistributionPoolScaler: _outTokenDistributionPoolScaler,
+            controllerSafeCallbackGasLimit: CONTROLLER_SAFE_CALLBACK_GAS_LIMIT,
             maxAllowedFeePM: MAX_ALLOWED_FEE_PM
             });
     }
@@ -125,9 +139,10 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
                   config.outTokenDistributionPoolScaler) {
         assert(config.inToken.getHost() == config.outToken.getHost());
         assert(address(config.observer) != address(0));
-        assert(config.maxAllowedFeePM <= INT_100PCT_PM);
+        assert(config.maxAllowedFeePM <= UINT_100PCT_PM);
 
         controller = config.controller;
+        CONTROLLER_SAFE_CALLBACK_GAS_LIMIT = config.controllerSafeCallbackGasLimit;
         MAX_ALLOWED_FEE_PM = config.maxAllowedFeePM;
 
         feeDistributionPool = _inToken.createPool(address(controller), PoolConfig({
@@ -146,11 +161,14 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
     function getTraderState(address a) external view returns (TraderState memory) { return traderStates[a]; }
 
     /// Tracking current fee distribution flow rate requested.
-    int96 private _requestedFeeDistFlowRate;
+    int96   private _requestedFeeDistFlowRate;
     /// Tracking the actual fee distribution rate.
-    int96 private _actualFeeDistFlowRate;
+    int96   private _actualFeeDistFlowRate;
     /// Buffer used by the fee flow distribution.
     uint256 private _feeDistBuffer;
+
+    /// Counter of internal errors of the controller.
+    uint256 public controllerInternalErrorCounter;
 
     /*******************************************************************************************************************
      * Super App Hooks for Flow Life-Cycles
@@ -201,20 +219,29 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
         ISuperfluid.Context memory context = HOST.decodeCtx(ctx);
         TraderState storage senderState = traderStates[sender];
 
+        // Note: a lot of nested brackets to fight the stack too deep trite
+
         int96 newFlowRate;
         int96 newContribFlowRate;
         int96 newFeeFlowRate;
         {
             newFlowRate = superToken.getFlowRate(sender, address(this));
 
-            // FIXME this should be revert-safe
-            newFeeFlowRate = controller.onInFlowChanged(sender,
+            {
+                bool requireSafeCallback = newFlowRate == 0; // do not revert in deleteFlow
+                bytes memory callData = abi.encodeCall(controller.onInFlowChanged,
+                                                       (sender,
                                                         prevFlowRate, senderState.feeFlowRate, lastUpdated,
                                                         newFlowRate, context.timestamp,
-                                                        context.userData);
+                                                        context.userData));
+                (bool success, bytes memory returnedData) = _callControllerHook(requireSafeCallback, callData);
+                if (success) {
+                    newFeeFlowRate = _safeDecodeFeeFlowRate(requireSafeCallback, returnedData);
+                }
+            }
 
             // protect traders from rogue controllers.
-            if (newFeeFlowRate > newFlowRate * MAX_ALLOWED_FEE_PM / INT_100PCT_PM) {
+            if (newFeeFlowRate > newFlowRate * int256(MAX_ALLOWED_FEE_PM) / INT_100PCT_PM) {
                 newFeeFlowRate = 0;
             }
 
@@ -297,7 +324,7 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
         // approval at the end of the batch call.
         (, int256 maxCoreBackAdjustment) = _requiredBackAdjustment(0, flowRate);
         int96 maxFeeDistRate = _requestedFeeDistFlowRate +
-            toInt96(int256(flowRate) * MAX_ALLOWED_FEE_PM / INT_100PCT_PM);
+            toInt96(int256(flowRate) * int256(MAX_ALLOWED_FEE_PM) / INT_100PCT_PM);
         uint256 feeDistBufferNew = _inToken.getBufferAmountByFlowRate(maxFeeDistRate);
         return SafeCast.toUint256(maxCoreBackAdjustment) +
             (feeDistBufferNew > _feeDistBuffer ? feeDistBufferNew - _feeDistBuffer : 0);
@@ -307,6 +334,11 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
     function moveLiquidity(bytes calldata moverData) external override returns (LiquidityMoveResult memory result) {
         result = _moveLiquidity(moverData);
         assert(controller.onLiquidityMoved(result));
+        {
+            bool requireSafeCallback = true; // always require safe callback to not block liquidity movements
+            bytes memory callData = abi.encodeCall(controller.onLiquidityMoved, (result));
+            _callControllerHook(requireSafeCallback, callData);
+        }
         emit LiquidityMoved(msg.sender,
                             result.durationSinceLastLME, result.twapSinceLastLME,
                             result.inAmount, result.minOutAmount,
@@ -322,5 +354,55 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
         returns (int96 requestedFeeDistFlowRate, int96 actualFeeDistFlowRate, uint256 feeDistBuffer)
     {
         return (_requestedFeeDistFlowRate, _actualFeeDistFlowRate, _feeDistBuffer);
+    }
+
+    /*******************************************************************************************************************
+     * Safe Controller Hook Functions
+     ******************************************************************************************************************/
+
+    /// Call controller hook and handle its potential errors.
+    function _callControllerHook(bool safeCallback, bytes memory callData) internal
+        returns (bool success, bytes memory returnedData)
+    {
+        if (safeCallback) {
+            bool insufficientCallbackGasProvided;
+            (success, insufficientCallbackGasProvided, returnedData) =
+                CallbackUtils.externalCall(address(controller), callData, CONTROLLER_SAFE_CALLBACK_GAS_LIMIT);
+            if (!success) {
+                if (insufficientCallbackGasProvided) {
+                    // This will consume all the reset of the gas, propagating the callback's out-of-gas error up.
+                    CallbackUtils.consumeAllGas();
+                } else {
+                    _emitControllerError(returnedData);
+                }
+            }
+        } else {
+            // solhint-disable-next-line avoid-low-level-calls
+            (success, returnedData) = address(controller).call(callData);
+            if (!success) {
+                revert(string(returnedData));
+            }
+        }
+    }
+
+    /// Safely decode onInFlowChanged hook result without reverting.
+    function _safeDecodeFeeFlowRate(bool requireSafeCallback, bytes memory data) internal
+        returns (int96 v)
+    {
+        if (requireSafeCallback) {
+            if (data.length != 32) _emitControllerError("safeDecodeFeeFlowRate: 1");
+            else {
+                (uint256 vv) = abi.decode(data, (uint256));
+                if (vv > uint256(int256(type(int96).max))) _emitControllerError("safeDecodeFeeFlowRate: 2");
+                else v = int96(uint96(vv));
+            }
+        } else {
+            return abi.decode(data, (int96));
+        }
+    }
+
+    function _emitControllerError(bytes memory reason) internal {
+        emit ControllerError(reason);
+        ++controllerInternalErrorCounter;
     }
 }

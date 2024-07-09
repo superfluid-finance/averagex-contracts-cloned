@@ -3,6 +3,8 @@ pragma solidity 0.8.23;
 
 import { Test, console, console2 } from "forge-std/Test.sol";
 
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import { ISuperToken } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import { ERC1820RegistryCompiled } from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC1820RegistryCompiled.sol";
 import { SuperfluidFrameworkDeployer } from "@superfluid-finance/ethereum-contracts/contracts/utils/SuperfluidFrameworkDeployer.sol";
@@ -84,10 +86,11 @@ contract TorexTest is Test {
     using SuperTokenV1Library for ISuperToken;
     using SuperTokenV1LibraryExtension for ISuperToken;
 
-    Scaler internal constant DEFAULT_IN_TOKEN_FEE_POOL_SCALER = Scaler.wrap(-1e7);
-    Scaler internal constant DEFAULT_OUT_TOKEN_DIST_POOL_SCALER = Scaler.wrap(-1e7);
-    int256 internal constant MAX_IN_TOKEN_FEE_PM = 30_000;    // 3% fee
-    int256 internal constant DEFAULT_IN_TOKEN_FEE_PM = 5_000; // 0.5% fee
+    Scaler  internal constant DEFAULT_IN_TOKEN_FEE_POOL_SCALER = Scaler.wrap(-1e7);
+    Scaler  internal constant DEFAULT_OUT_TOKEN_DIST_POOL_SCALER = Scaler.wrap(-1e7);
+    uint256 internal constant CONTROLLER_SAFE_CALLBACK_GAS_LIMIT = 2e6; // 2M gas for controller
+    uint256 internal constant MAX_IN_TOKEN_FEE_PM = 30_000;    // 3% fee
+    uint256 internal constant DEFAULT_IN_TOKEN_FEE_PM = 5_000; // 0.5% fee
 
     /* solhint-disable const-name-snakecase */
     address internal constant alice  = address(0x41);
@@ -105,7 +108,8 @@ contract TorexTest is Test {
 
     string internal constant TEST_INVARIANCE_11 = "11. TRADER PREVIOUS FLOW RATE";
     string internal constant TEST_INVARIANCE_12 = "12. DURATION SINCE LAST LME";
-    string internal constant TEST_INVARIANCE_13 = "13. TOREX NOT JAILED";
+    string internal constant TEST_INVARIANCE_13 = "13. TOREX JAILED";
+    string internal constant TEST_INVARIANCE_14 = "14. TOREX CONTROLLER INTERNAL ERROR";
     string internal constant TEST_BEHAVIOR_21   = "21. TRADER FEE FLOW DIST RATE";
     string internal constant TEST_BEHAVIOR_22   = "22. TRADER CONTRIB RATE";
     string internal constant TEST_BEHAVIOR_23   = "23. TOREX REQ FEE DIST FLOW RATE";
@@ -123,7 +127,7 @@ contract TorexTest is Test {
     ISuperToken internal _outToken;
     MockLiquidityMover internal _mockLiquidityMover;
 
-    int256 internal _expectedFeePM;
+    uint256 internal _expectedFeePM;
     Torex internal _torex;
 
     constructor() {
@@ -170,12 +174,13 @@ contract TorexTest is Test {
             discountFactor: DiscountFactor.wrap(0), /* No discount */
             outTokenDistributionPoolScaler: DEFAULT_OUT_TOKEN_DIST_POOL_SCALER,
             controller: ITorexController(address(0)), /* to be filled */
+            controllerSafeCallbackGasLimit: CONTROLLER_SAFE_CALLBACK_GAS_LIMIT,
             maxAllowedFeePM: MAX_IN_TOKEN_FEE_PM
             });
     }
 
     function _setPriceScaler(int256 ps) internal {
-        console2.log("Price scaler", ps);
+        console2.log("Price scaler:", ps);
         MockTorexObserver(address(_torex.getConfig().observer)).setPrice(Scaler.wrap(ps));
     }
 
@@ -303,7 +308,8 @@ contract TorexTest is Test {
         (int96 requestedFeeDistFlowRate1, /*int96 actualFeeDistFlowRate1*/, ) = _torex.debugCurrentDetails();
 
         assertFalse(_sf.host.isAppJailed(_torex), TEST_INVARIANCE_13);
-        assertEq(ts1.feeFlowRate, newFlowRate * _expectedFeePM / 1e6, TEST_BEHAVIOR_21);
+        assertEq(_torex.controllerInternalErrorCounter(), 0, TEST_INVARIANCE_14);
+        assertEq(ts1.feeFlowRate, newFlowRate * int256(_expectedFeePM) / 1e6, TEST_BEHAVIOR_21);
         assertEq(ts1.contribFlowRate, newFlowRate - ts1.feeFlowRate, TEST_BEHAVIOR_22);
         assertEq(requestedFeeDistFlowRate1,
                  requestedFeeDistFlowRate0 + ts1.feeFlowRate - ts0.feeFlowRate,
@@ -322,7 +328,7 @@ contract TorexTest is Test {
                 // back adjustment rule 1: back charge + fee distribution flow buffer
                 int256 backCharge = (newFlowRate - prevFlowRate) * int256(durationSinceLastLME);
                 uint256 bufferFee = _expectedBufferFee(requestedFeeDistFlowRate1, feeDistBuffer0);
-                console2.log("Expected back charge", backCharge);
+                console2.log("Expected back charge", SafeCast.toUint256(backCharge));
                 console2.log("Expected bufferFee", bufferFee);
                 assertEq(-ownedBalanceDelta,
                          backCharge + int256(bufferFee),
@@ -332,7 +338,7 @@ contract TorexTest is Test {
                          "An assumption about the protocol broke (2)");
                 // back adjustment rule 2: back refund
                 int256 backRefund = (ts0.contribFlowRate - ts1.contribFlowRate) * int256(durationSinceLastLME);
-                console2.log("Expected back refund", backRefund);
+                console2.log("Expected back refund", SafeCast.toUint256(backRefund));
                 assertEq(ownedBalanceDelta,
                          backRefund,
                          TEST_BEHAVIOR_32);

@@ -12,15 +12,16 @@ const config = defineConfig({
         foundry({
             deployments: {
                 SuperBoring: {
-                    [chains.celo.id]:
-                        "0xe900226acd75ec9eb0b5b7504692486d7d23b9d3",
+                    [chains.base.id]: "0x37d607bd9dfff80acf37184c1f27e88388914262",
+                    [chains.celo.id]: "0xaca744453c178f3d651e06a3459e2f242aa01789",
                 },
                 EmissionTreasury: {
-                    [chains.celo.id]:
-                        "0x1785d12f7aba1134552c136886814f6c5aac2b97",
+                    [chains.base.id]: "0x14a201a50b3ffc7ca9851dd137aa47ff33924025",
+                    [chains.celo.id]: "0x89795bb9aed5fa4c5c91815bb28db790ea7933c9",
                 },
                 DistributionFeeManager: {
-                    [chains.celo.id]: "0xc19e31c910737C3A0F72b0526e491dDfB359fD7A",
+                    [chains.base.id]: "0xfdad7082c6d2e07dd232be252bfd65841ea1c83c",
+                    [chains.celo.id]: "0x750c3e12f26a998244ca9c95d300cc20f4dfb485",
                 },
                 ISuperfluid: {
                     ...metadata.networks.reduce(
@@ -34,8 +35,8 @@ const config = defineConfig({
                 },
                 ISuperToken: {
                     // Reward Token
-                    [chains.celo.id]:
-                        "0x6c210f071c7246c452cac7f8baa6da53907bbae1",
+                    [chains.base.id]: "0x2112b92a4f6496b7b2f10850857ffa270464d054",
+                    [chains.celo.id]: "0x6c210f071c7246c452cac7f8baa6da53907bbae1",
                 },
                 IConstantFlowAgreementV1: {
                     ...metadata.networks.reduce(

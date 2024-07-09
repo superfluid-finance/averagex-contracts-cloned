@@ -11,13 +11,19 @@ import { UUPSProxiable } from "@superfluid-finance/ethereum-contracts/contracts/
 import { UUPSProxy } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxy.sol";
 
 
+/**
+ * @title Emission treasury takes custody of BORING and provides an interface of emission rates controls of BORING to
+ *        targets to the QE TIP.
+ */
 contract EmissionTreasury is UUPSProxiable, Ownable {
     using SuperTokenV1Library for ISuperToken;
 
     event EmissionRateUpdated(address indexed emissionTarget, int96 emissionRate);
+
     event EmissionUnitsUpdated(address indexed emissionTarget, address member, uint128 units);
 
     ISuperToken immutable public boringToken;
+
     mapping (address emissionTarget => ISuperfluidPool) private _emissionPools;
 
     constructor(ISuperToken token) {
@@ -34,6 +40,10 @@ contract EmissionTreasury is UUPSProxiable, Ownable {
                     }));
         }
     }
+
+    /*******************************************************************************************************************
+     * View Functions
+     ******************************************************************************************************************/
 
     function balanceLeft() external view
         returns (uint256)
@@ -55,18 +65,36 @@ contract EmissionTreasury is UUPSProxiable, Ownable {
         } else return 0;
     }
 
+    function getMemberEmissionUnits(address emissionTarget, address member) external view
+        returns (uint128 units)
+    {
+        return _emissionPools[emissionTarget].getUnits(member);
+    }
+
+    function getMemberEmissionRate(address emissionTarget, address member) external view
+        returns (int96 emissionRate)
+    {
+        return _emissionPools[emissionTarget].getMemberFlowRate(member);
+    }
+
+    /*******************************************************************************************************************
+     * Emission Target Controls
+     ******************************************************************************************************************/
+
+    /// Update flow rate for the emission target.
     function updateEmissionRate(address emissionTarget, int96 emissionRate) external
         onlyOwner
     {
-        emit EmissionRateUpdated(emissionTarget, emissionRate);
         boringToken.distributeFlow(address(this), _emissionPools[emissionTarget], emissionRate);
+        emit EmissionRateUpdated(emissionTarget, emissionRate);
     }
 
-    function updateEmissionUnits(address emissionTarget, address member, uint128 units) external
+    /// Control individual member emission units.
+    function updateMemberEmissionUnits(address emissionTarget, address member, uint128 units) external
         onlyOwner
     {
-        emit EmissionUnitsUpdated(emissionTarget, member, units);
         _emissionPools[emissionTarget].updateMemberUnits(member, units);
+        emit EmissionUnitsUpdated(emissionTarget, member, units);
     }
 
     /*******************************************************************************************************************
@@ -88,6 +116,7 @@ contract EmissionTreasury is UUPSProxiable, Ownable {
     }
 }
 
+/// Create an emission treasury. !WARNING! It must be initialized to the rightful owner as soon as possible.
 function createEmissionTreasury(ISuperToken token) returns (EmissionTreasury r) {
     EmissionTreasury logic = new EmissionTreasury(token);
     logic.castrate();

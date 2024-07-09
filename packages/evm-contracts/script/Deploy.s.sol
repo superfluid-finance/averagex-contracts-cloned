@@ -13,22 +13,29 @@ import { PureSuperToken } from "@superfluid-finance/ethereum-contracts/contracts
 
 import { getDiscountFactor } from "../src/libs/DiscountFactor.sol";
 import { Scaler, getScaler10Pow } from "../src/libs/Scaler.sol";
-import { FakeLiquidityMover } from "../src/utils/FakeLiquidityMover.sol";
-import { UniswapV3PoolTwapObserver, ITwapObserver } from "../src/UniswapV3PoolTwapObserver.sol";
 import { Torex, ITorexController } from "../src/Torex.sol";
-import { TorexFactory } from "../src/TorexFactory.sol";
+import { UniswapV3PoolTwapObserver, ITwapObserver } from "../src/UniswapV3PoolTwapObserver.sol";
+import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
 import { UnbridledX } from "../src/UnbridledX.sol";
-import { SuperBoring, EmissionTreasury, DistributionFeeManager } from "../src/SuperBoring.sol";
-import { createEmissionTreasury } from "../src/BoringPrograms/EmissionTreasury.sol";
-import { createDistributionFeeManager } from "../src/BoringPrograms/DistributionFeeManager.sol";
+import { SuperBoring, createSuperBoring } from "../src/SuperBoring.sol";
+import { EmissionTreasury, createEmissionTreasury } from "../src/BoringPrograms/EmissionTreasury.sol";
+import { DistributionFeeManager, createDistributionFeeManager } from "../src/BoringPrograms/DistributionFeeManager.sol";
+
+import {
+    DistributorFeeCollector,
+    createDistributorFeeCollector
+} from "../src/utils/DistributorFeeCollector.sol";
+import { FakeLiquidityMover } from "../src/utils/FakeLiquidityMover.sol";
 
 
 abstract contract DeploymentScriptBase is Script {
-    int256  internal constant MAX_TOREX_FEE_PM = 30_000;    // Maximum 3% fee for the Torex
-    int256  internal constant DEFAULT_TOREX_FEE_PM = 5_000; // Default 0.5% fee
+    uint256 internal constant CONTROLLER_SAFE_CALLBACK_GAS_LIMIT = 2e6;
+    uint256 internal constant MAX_TOREX_FEE_PM = 30_000;    // Maximum 3% fee for the Torex
+    uint256 internal constant DEFAULT_TOREX_FEE_PM = 5_000; // Default 0.5% fee
+    uint256 internal constant DEFAULT_MINIMUM_STAKING_AMUONT = 1e18; // Default 1 $BORING
     uint256 internal constant DEFAULT_INITIAL_AVG_SUPPLY = 1e6 ether;
 
-    function _startBroadcast() internal {
+    function _startBroadcast() internal returns (address deployer) {
         uint256 deployerPrivKey = vm.envOr("PRIVKEY", uint256(0));
 
         // Setup deployment account, using private key from environment variable or foundry keystore (`cast wallet`).
@@ -39,8 +46,8 @@ abstract contract DeploymentScriptBase is Script {
         }
 
         // This is the way to get deployer address in foundry:
-        (,address msgSender,) = vm.readCallers();
-        console2.log("Deployer address", msgSender);
+        (,deployer,) = vm.readCallers();
+        console2.log("Deployer address", deployer);
     }
 
     function _stopBroadcast() internal {
@@ -106,21 +113,8 @@ contract DeployTorexFactory is DeploymentScriptBase {
 
         _startBroadcast();
 
-        TorexFactory factory = new TorexFactory();
+        TorexFactory factory = createTorexFactory();
         console.log("TorexFactory deployed at", address(factory));
-
-        _stopBroadcast();
-    }
-}
-
-contract FakeLiquidityMoverDeployer is DeploymentScriptBase {
-    function run() external {
-        _showGitRevision();
-
-        _startBroadcast();
-
-        FakeLiquidityMover flm = new FakeLiquidityMover();
-        console.log("FakeLiquidityMover deployed at", address(flm));
 
         _stopBroadcast();
     }
@@ -148,23 +142,24 @@ abstract contract TwinTorexDeployer is DeploymentScriptBase {
     function deployTwinTorex(ITorexController controller,
                              function (IUniswapV3Pool, bool, Torex.Config memory)
                              internal returns (Torex) deploy) internal {
+        _startBroadcast();
+
         IUniswapV3Pool uniV3Pool;
         Torex.Config memory config;
-
         {
             uniV3Pool = IUniswapV3Pool(vm.envAddress("TOREX_UNIV3POOL"));
             ISuperToken superToken0 = ISuperToken(vm.envAddress("TOREX_SUPER_TOKEN0"));
             ISuperToken superToken1 = ISuperToken(vm.envAddress("TOREX_SUPER_TOKEN1"));
-            uint32 discountModelTau = uint32(vm.envOr("TOREX_DISCOUNT_TAU", uint32(10 minutes)));
-            uint32 discountModelEpsilon = uint32(vm.envOr("TOREX_DISCOUNT_EPSILON", uint32(100_000)));
+            uint32 discountModelTau = uint32(vm.envOr("TOREX_DISCOUNT_TAU", uint32(1 hours)));
+            uint32 discountModelEpsilon = uint32(vm.envOr("TOREX_DISCOUNT_EPSILON", uint32(1_0000)));
 
             // Note: assuming it's an uniswap pool for underlying tokens.
             require(_matchUnderlyingToken(superToken0, uniV3Pool.token0()), "Unmatching super token 0");
             require(_matchUnderlyingToken(superToken1, uniV3Pool.token1()), "Unmatching super token 1");
 
-            console.log("Torex controller is at %s", address(controller));
+            console.log("Torex controller is configured to %s", address(controller));
 
-            console.log("Creating two unbridled torexes with:");
+            console.log("Creating twin torexes with:");
             console.log("  Uniswap v3 pool of token0 %s and token1 %s at %s",
                         IERC20Metadata(uniV3Pool.token0()).symbol(),
                         IERC20Metadata(uniV3Pool.token1()).symbol(),
@@ -180,22 +175,30 @@ abstract contract TwinTorexDeployer is DeploymentScriptBase {
                 observer: ITwapObserver(address(0)), // unitialized for createUniV3PoolTwapObserverAndTorex
                 twapScaler: Scaler.wrap(0), // unitialized for createUniV3PoolTwapObserverAndTorex
                 discountFactor: getDiscountFactor(discountModelTau, discountModelEpsilon),
-                outTokenDistributionPoolScaler: getScaler10Pow(-7), // TODO it's hardcoded
+                outTokenDistributionPoolScaler: Scaler.wrap(0), // to be filled later
                 controller: controller,
+                controllerSafeCallbackGasLimit: CONTROLLER_SAFE_CALLBACK_GAS_LIMIT,
                 maxAllowedFeePM: MAX_TOREX_FEE_PM
                 });
         }
 
-        _startBroadcast();
-
         Torex torex;
+        {
+            int8 outTokenDistributionPoolScalerN10Pow = int8(vm.envInt("OUT_TOKEN_POOL_SCALER_N10POW_0"));
+            config.outTokenDistributionPoolScaler = getScaler10Pow(outTokenDistributionPoolScalerN10Pow);
 
-        torex = deploy(uniV3Pool, false, config);
-        console.log("  created for token0 to token1");
+            torex = deploy(uniV3Pool, false, config);
+            console2.log("  with outTokenDistributionPoolScalerN10Pow", outTokenDistributionPoolScalerN10Pow);
+        }
+        {
+            int8 outTokenDistributionPoolScalerN10Pow = int8(vm.envInt("OUT_TOKEN_POOL_SCALER_N10POW_1"));
+            config.outTokenDistributionPoolScaler = getScaler10Pow(outTokenDistributionPoolScalerN10Pow);
+            // inverse token pair
+            (config.outToken, config.inToken) = (config.inToken, config.outToken);
 
-        (config.outToken, config.inToken) = (config.inToken, config.outToken);
-        torex = deploy(uniV3Pool, true, config);
-        console.log("  created for token1 to token0");
+            torex = deploy(uniV3Pool, true, config);
+            console2.log("  with outTokenDistributionPoolScalerN10Pow", outTokenDistributionPoolScalerN10Pow);
+        }
 
         _stopBroadcast();
     }
@@ -254,22 +257,35 @@ contract DeploySuperBoring is DeploymentScriptBase {
     function run() external {
         _showGitRevision();
 
-        _startBroadcast();
+        address deployer = _startBroadcast();
 
         ISuperToken token = ISuperToken(vm.envAddress("SB_TOKEN_ADDRESS"));
         TorexFactory torexFactory = TorexFactory(vm.envAddress("SB_TOREX_FACTORY"));
         EmissionTreasury emissionTreasury = EmissionTreasury(vm.envAddress("SB_EMISSION_TREASURY"));
         DistributionFeeManager distributionFeeManager =
             DistributionFeeManager(vm.envAddress("SB_DISTRIBUTION_FEE_MANAGER"));
-        SuperBoring sb = new SuperBoring(token,
-                                         torexFactory,
-                                         emissionTreasury,
-                                         distributionFeeManager);
+        uint256 inTokenFeePM = vm.envOr("SB_IN_TOKEN_FEE_PM", DEFAULT_TOREX_FEE_PM);
+        uint256 minimumStakingAmount = vm.envOr("SB_MINIMUM_STAKING_AMOUNT", DEFAULT_MINIMUM_STAKING_AMUONT);
+
+        SuperBoring sb = createSuperBoring(token,
+                                           torexFactory,
+                                           emissionTreasury,
+                                           distributionFeeManager,
+                                           SuperBoring.Config({
+                                               inTokenFeePM: inTokenFeePM,
+                                               minimumStakingAmount: minimumStakingAmount
+                                           }));
         console2.log("SuperBoring deployed at %s", address(sb));
-        console2.log("  with token %s", address(token));
-        console2.log("  with torexFactory %s", address(torexFactory));
-        console2.log("  with emissionTreasury %s", address(emissionTreasury));
-        console2.log("  with distributionFeeManager %s", address(distributionFeeManager));
+        console2.log("  with boringToken %s", address(sb.boringToken()));
+        console2.log("  with torexFactory %s", address(sb.torexFactory()));
+        console2.log("  with emissionTreasury %s", address(sb.emissionTreasury()));
+        console2.log("  with distributionFeeManager %s", address(sb.distributionFeeManager()));
+        console2.log("  with sleepPodBeacon %s", address(sb.sleepPodBeacon()));
+        console2.log("  with inTokenFeePM %d", sb.IN_TOKEN_FEE_PM());
+        console2.log("  with minimumStakingAmount %s", sb.MINIMUM_STAKING_AMOUNT());
+
+        sb.initialize(deployer);
+        console2.log("SB.owner %s", sb.owner());
 
         console2.log("Initialize emission treasury's ownership to SuperBoring");
         emissionTreasury.initialize(address(sb));
@@ -285,14 +301,35 @@ contract UpgradeSuperBoring is DeploymentScriptBase {
     function run() external {
         _showGitRevision();
 
+        _startBroadcast();
+
         SuperBoring sb = SuperBoring(vm.envAddress("SB_ADDRESS"));
-        console2.log("Upgrading SuperBoring at %s", address(sb));
+        // torex factory can be changed, optionally
+        TorexFactory torexFactory = TorexFactory(vm.envOr("SB_TOREX_FACTORY", address(sb.torexFactory())));
+        if (torexFactory != sb.torexFactory()) {
+            console.log("Upgrading to new torex factory %s", address(torexFactory));
+        }
+
+        SuperBoring newSBLogic = new SuperBoring(sb.boringToken(),
+                                                 torexFactory,
+                                                 sb.emissionTreasury(),
+                                                 sb.distributionFeeManager(),
+                                                 sb.sleepPodBeacon(),
+                                                 SuperBoring.Config({
+                                                     inTokenFeePM: sb.IN_TOKEN_FEE_PM(),
+                                                     minimumStakingAmount: sb.MINIMUM_STAKING_AMOUNT()
+                                                 }));
+        sb.updateCode(address(newSBLogic));
+        console2.log("SuperBoring upgraded at %s", address(sb));
         console2.log("  with token %s", address(sb.boringToken()));
         console2.log("  with torexFactory %s", address(sb.torexFactory()));
         console2.log("  with emissionTreasury %s", address(sb.emissionTreasury()));
         console2.log("  with distributionFeeManager %s", address(sb.distributionFeeManager()));
+        console2.log("  with sleepPodBeacon %s", address(sb.sleepPodBeacon()));
+        console2.log("  with inTokenFeePM %d", sb.IN_TOKEN_FEE_PM());
+        console2.log("  with minimumStakingAmount %s", sb.MINIMUM_STAKING_AMOUNT());
 
-        _startBroadcast();
+        _stopBroadcast();
     }
 }
 
@@ -309,12 +346,59 @@ contract DeploySuperBoringTwinTorex is TwinTorexDeployer {
 
         console.log("SuperBoring is at %s", address(sb));
 
-        torex = sb.createUniV3PoolTwapObserverAndTorex(uniV3Pool, inverseOrder,
-                                                       config,
-                                                       -12 /* feePoolScalerN10Pow */,-12 /* boringPoolScalerN10Pow */);
+        int8 feePoolScalerN10Pow;
+        int8 boringPoolScalerN10Pow;
+        if (!inverseOrder) {
+            feePoolScalerN10Pow = int8(vm.envInt("FEE_POOL_SCALER_N10POW_0"));
+            boringPoolScalerN10Pow = int8(vm.envInt("BORING_POOL_SCALER_N10POW_0"));
+        } else {
+            feePoolScalerN10Pow = int8(vm.envInt("FEE_POOL_SCALER_N10POW_1"));
+            boringPoolScalerN10Pow = int8(vm.envInt("BORING_POOL_SCALER_N10POW_1"));
+        }
+
+        torex = sb.createUniV3PoolTwapObserverAndTorex(config,
+                                                       feePoolScalerN10Pow, boringPoolScalerN10Pow,
+                                                       uniV3Pool, inverseOrder);
         console2.log("Torex created at %s by SuperBoring", address(torex));
+        console2.log("  feePoolScalerN10Pow", feePoolScalerN10Pow);
+        console2.log("  boringPoolScalerN10Pow", boringPoolScalerN10Pow);
         console2.log("  with TWAP observer %s", address(torex.getConfig().observer));
-        console2.log("  and TWAP scaler %d", Scaler.unwrap(torex.getConfig().twapScaler));
+        console2.log("  and TWAP scaler", Scaler.unwrap(torex.getConfig().twapScaler));
+    }
+}
+
+/***********************************************************************************************************************
+ * Peripherals
+ **********************************************************************************************************************/
+
+contract DeployDistributorFeeCollector is DeploymentScriptBase {
+    function run() external {
+        _showGitRevision();
+
+        SuperBoring sb = SuperBoring(vm.envAddress("SB_ADDRESS"));
+        console.log("Using SuperBoring at %s", address(sb));
+
+        address deployer = _startBroadcast();
+
+        DistributorFeeCollector c = createDistributorFeeCollector(sb.distributionFeeManager(), deployer);
+        console.log("DistributorFeeCollector created at %s, with", address(c));
+        console.log("  owner %s", c.owner());
+        console.log("  manager %s", address(c.manager()));
+
+        _stopBroadcast();
+    }
+}
+
+contract FakeLiquidityMoverDeployer is DeploymentScriptBase {
+    function run() external {
+        _showGitRevision();
+
+        _startBroadcast();
+
+        FakeLiquidityMover flm = new FakeLiquidityMover();
+        console.log("FakeLiquidityMover deployed at", address(flm));
+
+        _stopBroadcast();
     }
 }
 
@@ -346,7 +430,7 @@ contract DeployUnbridledTwinTorex is TwinTorexDeployer {
         returns (Torex torex)
     {
         UnbridledX unbridledX = UnbridledX(vm.envAddress("UNBRIDLED_X"));
-        int256 torexFeePM = int256(vm.envOr("TOREX_FEE_PM", DEFAULT_TOREX_FEE_PM));
+        uint256 torexFeePM = vm.envOr("TOREX_FEE_PM", DEFAULT_TOREX_FEE_PM);
         address torexFeeDest = vm.envOr("TOREX_FEE_DEST", msg.sender);
         TorexFactory factory = TorexFactory(vm.envAddress("TOREX_FACTORY"));
 
@@ -357,7 +441,7 @@ contract DeployUnbridledTwinTorex is TwinTorexDeployer {
         unbridledX.registerTorex(torex, torexFeePM, torexFeeDest);
         console2.log("Torex created at %s, and registered to UnbridledX", address(torex));
         console2.log("  with TWAP observer %s", address(torex.getConfig().observer));
-        console2.log("  and TWAP scaler %d", Scaler.unwrap(torex.getConfig().twapScaler));
+        console2.log("  and TWAP scaler", Scaler.unwrap(torex.getConfig().twapScaler));
         console2.log("  torex fee to %s at %d per-million", torexFeeDest, uint256(torexFeePM));
     }
 }

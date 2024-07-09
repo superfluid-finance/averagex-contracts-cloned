@@ -6,6 +6,8 @@ import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/Upgradea
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+import { UUPSProxiable } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxiable.sol";
+import { UUPSProxy } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxy.sol";
 import {
     ISuperfluidPool, ISuperToken
 } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
@@ -22,7 +24,7 @@ import { BasicStakingTIP } from "./BoringPrograms/BasicStakingTIP.sol";
 import { SleepPod, createSleepPodBeacon } from "./BoringPrograms/SleepPod.sol";
 import { InitialStakingTIP } from "./BoringPrograms/InitialStakingTIP.sol";
 import { QuadraticEmissionTIP, EmissionTreasury } from "./BoringPrograms/QuadraticEmissionTIP.sol";
-import { DistributionFeeManager, IDistributorUnitsProvider } from "./BoringPrograms/DistributionFeeManager.sol";
+import { DistributionFeeManager, IDistributorStatsProvider } from "./BoringPrograms/DistributionFeeManager.sol";
 import { DistributionFeeDIP } from "./BoringPrograms/DistributionFeeDIP.sol";
 
 
@@ -31,45 +33,36 @@ import { DistributionFeeDIP } from "./BoringPrograms/DistributionFeeDIP.sol";
  *
  * TODOs:
  *
- * - Programs:
- *   - [x] TIP: IS (Initial Staking) <<< BS (Basic Staking)
- *   - [x] TIP: QE (Quadratic Emission)
- *   - [x]      - built-in referral bonus
- *   - [x] DIP: DF (Distribution Fee)
- *   - [x]      - Distributor ranking system
- *   - [ ] Staking fee to make QE less gameable.
- *   - [ ] MathExtra: safeSubNoThrow
- * - Per TOREX Stats:
- *   - [x] BORING staked
- *     - why: as a degen, knowing how QE works, I'd like to know which TOREX has more BORING staked.
- *     - unit: amount of BORING.
- *     - how: rpc call `sb.getTotalStakedAmount` over each torex.
- *   - [x] Est. Monthly DCA volume
- *     - why: it is good to know. Also, as a trader, investing in a slow market may mean paying higher premium, which is
- *       something to be avoided.
- *     - unit: in-tokens flow rate / s
- *     - how: based on the flow rate from a direct rpc query of in-token flow rate to the torex.
- *   - [x] Est. Rewards, aka. "Staking rewards", or in-token fees
- *     - why: as a degen, I'd like to put BORING into work, this is the most direct metric.
- *     - unit: in-tokens flow rate (per norminal BORING)
- *     - how: rpc call `distribution flow rate from torex.feeDistributionPool() / sb.getTotalStakedAmount()` , and maybe
- *       normalize with the market price of in-tokens.
- *   - [x] Monthly BORING reward
- *     - why: as a degen, I'd like to put my assets into work (earn BORING), this is the most direct metric.
- *     - unit: BORING, per in-token (or preferably its dollar value) traded
- *     - how: rpc call `sb.emissionTreasury().getEmissionRate(torex)`.
- * - Global Stats:
- *   - These lacking strong personalized "why"s, since they are mostly in "good to know" category.
- *   - [ ] Total DCA volume in $
- *     - note: as a starter, UI can do aggregations of known TOREXes; with market price, sacrificing data accuracy.
- *   - [ ] Total rewards volume in $
- *     - note: ditto.
- *   - [ ] Total BORING staked
- *     - note: ditto.
- *   - [ ] Total BORING emitted
- *     - note: may need to build extra accounting into the EmissionTreasury contract.
+ * - [ ] MathExtra: safeSubNoThrow
+ *
+ * # Stats
+ *
+ * - Total BORING staked, currently
+ *   - why: as a degen, knowing how QE works, I'd like to know which TOREX has more BORING staked.
+ *   - unit: amount of BORING.
+ *   - how: rpc call `sb.getTotalStakedAmount` over each torex.
+ * - Total Monthly DCA Volume
+ *   - why: it is good to know. Also, as a trader, investing in a slow market may mean paying higher premium, which is
+ *     something to be avoided.
+ *   - unit: in-tokens flow rate / s
+ *   - how:
+ *     1. based on the flow rate from a direct rpc query of in-token flow rate to the torex.
+ *     2. Or, sb.getTotalityStats(torex).distributedVolume.
+ * - Total Monthly Staking Revenue
+ *   - why: as a degen, I'd like to put BORING into work, this is the most direct metric.
+ *   - unit: in-tokens flow rate (per norminal BORING)
+ *   - how: rpc call `distribution flow rate from torex.feeDistributionPool() / sb.getTotalStakedAmount()` , and maybe
+ *     normalize with the market price of in-tokens.
+ * - Total Monthly BORING reward
+ *   - why: as a degen, I'd like to put my assets into work (earn BORING), this is the most direct metric.
+ *   - unit: BORING, per in-token (or preferably its dollar value) traded
+ *   - how: rpc call `sb.emissionTreasury().getEmissionRate(torex)`.
+ * - Total $BORING emitted
+ *   - May require superfluid protocol subgraph.
+ * - Total $BORING flow-rate
+ *   - Out flow rate of the emission treasury.
  */
-contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
+contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorStatsProvider {
     using SuperTokenV1Library for ISuperToken;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -81,15 +74,29 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
 
     error NO_SELF_REFERRAL();
 
+    error MINIMUM_STAKING_AMOUNT_REQUIRED();
+
     event TorexCreated(ITorex indexed torex);
 
-    event StakeUpdated(ITorex indexed torex, address indexed staker, uint256 stakedAmount);
+    event StakeUpdated(ITorex indexed torex, address indexed staker, uint256 newStakedAmount);
 
     /*******************************************************************************************************************
      * Configurations and Constructor
      ******************************************************************************************************************/
 
-    int256  public constant IN_TOKEN_FEE_PM = 5_000; // 0.5%
+    struct Config {
+        uint256 inTokenFeePM;
+        uint256 minimumStakingAmount;
+    }
+
+    /// In token fee (per-million) for all torexes. It may change in the future; however, the changes will not
+    /// grandfather for the existing trading streams.
+    uint256 public immutable IN_TOKEN_FEE_PM;
+
+    /// Minimum amount of boring token required for a staking position.
+    uint256 public immutable MINIMUM_STAKING_AMOUNT;
+
+    // References to contracts used in SuperBoring. Deployment script must stick to the same addresses over time.
 
     ISuperToken            public immutable boringToken;
     TorexFactory           public immutable torexFactory;
@@ -100,12 +107,17 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
     constructor(ISuperToken boringToken_,
                 TorexFactory tokenFactory_,
                 EmissionTreasury emissionTreasury_,
-                DistributionFeeManager distributionFeeManager_) {
+                DistributionFeeManager distributionFeeManager_,
+                UpgradeableBeacon sleepPodBeacon_,
+                Config memory config) {
         boringToken = boringToken_;
         torexFactory = tokenFactory_;
         emissionTreasury = emissionTreasury_;
         distributionFeeManager = distributionFeeManager_;
-        sleepPodBeacon = createSleepPodBeacon(boringToken);
+        sleepPodBeacon = sleepPodBeacon_;
+
+        IN_TOKEN_FEE_PM = config.inTokenFeePM;
+        MINIMUM_STAKING_AMOUNT = config.minimumStakingAmount;
     }
 
     /*******************************************************************************************************************
@@ -124,6 +136,7 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
         _;
     }
 
+    /// List publicly registered torexes. This supports simple range queries through skip and first parameters.
     function getAllTorexesMetadata(uint256 skip, uint256 first) public view
         returns (TorexMetadata[] memory metadataList)
     {
@@ -138,39 +151,35 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
         }
     }
 
+    /// A backward compatible parameter-less getAllTorexesMetadata which hardcodes a query range.
     function getAllTorexesMetadata() external view
         returns (TorexMetadata[] memory metadataList)
     {
         return getAllTorexesMetadata(0, 100);
     }
 
-    function createTorex(Torex.Config memory torexConfig,
-                         int8 feePoolScalerN10Pow, int8 boringPoolScalerN10Pow) external
+    /**
+     * @dev Create a torex with an optional uniswap pool provided as its TWAP price oracle.
+     * @param torexConfig Configuration for the torex.
+     * @param feePoolScalerN10Pow Fee pool scaler set to 10**x
+     * @param boringPoolScalerN10Pow Boring pool scaler set to 10**x
+     * @param uniV3Pool Optional uniswap V3 Pool, if provided, its TWAP oracle will be used for the TOREX.
+     * @param inverseOrder Inverse the token0 token1 for (inToken, outToken) pair of Torex.
+     */
+    function createUniV3PoolTwapObserverAndTorex(Torex.Config memory torexConfig,
+                                                 int8 feePoolScalerN10Pow, int8 boringPoolScalerN10Pow,
+                                                 IUniswapV3Pool uniV3Pool, bool inverseOrder) public
         returns (Torex torex)
     {
         EnumerableSet.AddressSet storage $ = _getTorexRegistryStorage();
 
         assert(address(torexConfig.controller) == address(0)); // leave it to us
         torexConfig.controller = this;
-        torex = torexFactory.createTorex(torexConfig);
-
-        $.add(address(torex));
-        emit TorexCreated(torex);
-
-        BasicStakingTIP.setFeePoolScaler(torex, feePoolScalerN10Pow);
-        QuadraticEmissionTIP.setBoringPoolScaler(torex, boringPoolScalerN10Pow);
-    }
-
-    function createUniV3PoolTwapObserverAndTorex(IUniswapV3Pool uniV3Pool, bool inverseOrder,
-                                                 Torex.Config memory torexConfig,
-                                                 int8 feePoolScalerN10Pow, int8 boringPoolScalerN10Pow) external
-        returns (Torex torex)
-    {
-        EnumerableSet.AddressSet storage $ = _getTorexRegistryStorage();
-
-        assert(address(torexConfig.controller) == address(0)); // leave it to us
-        torexConfig.controller = this;
-        torex = torexFactory.createUniV3PoolTwapObserverAndTorex(uniV3Pool, inverseOrder, torexConfig);
+        if (address(uniV3Pool) == address(0)) {
+            torex = torexFactory.createTorex(torexConfig);
+        } else {
+            torex = torexFactory.createUniV3PoolTwapObserverAndTorex(uniV3Pool, inverseOrder, torexConfig);
+        }
 
         $.add(address(torex));
         emit TorexCreated(torex);
@@ -184,49 +193,56 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
      ******************************************************************************************************************/
 
     // @inheritdoc ITorexController
-    function getTypeId() external pure override returns (bytes32) { return keccak256("SuperBoring"); }
+    function getTypeId() external pure override returns (bytes32) { return proxiableUUID(); }
+
+    /// The user data struct user must pass to in flow creations and updates. It is equivalent to (address, address).
+    struct InFlowUserData {
+        address distributor;
+        address referrer;
+    }
 
     // @inheritdoc ITorexController
     function onInFlowChanged(address trader,
-                             int96 prevFlowRate, int96 /*preFeeFlowRate*/, uint256 /*lastUpdated*/,
+                             int96 prevFlowRate, int96 /*preFeeFlowRate*/, uint256 /*last Updated*/,
                              int96 newFlowRate, uint256 /*now*/,
-                             bytes calldata userData) external override
+                             bytes calldata userDataRaw) external override
         onlyRegisteredTorex(msg.sender)
         returns (int96 newFeeFlowRate)
     {
-        address referrer;
+        InFlowUserData memory userData;
 
-        // Update global distribution stats, this is the oracle necessary for ranking distributors
-        {
-            address distributor;
-
-            // Unless deleting a flow, we expect an optional (distributor, referrer) is provided through the userData.
-            // When deleting the flow (newFlowRate == 0), distributor and referrer are reset to NONE.
-            if (newFlowRate > 0) {
-                // - userData is optional.
-                // - when provided, its schema: (address distributor, address referrer)
-                if (userData.length > 0) {
-                    // This may revert, and it will make create/update flow fail.
-                    (distributor, referrer) = abi.decode(userData, (address, address));
-                    if (trader == referrer) revert NO_SELF_REFERRAL();
-                } else {
-                    // during update flow, we keep same distributor and referrer
-                    if (prevFlowRate > 0) {
-                        distributor = DistributionFeeDIP.getCurrentDistributor(ITorex(msg.sender), trader);
-                        referrer = QuadraticEmissionTIP.getCurrentReferrer(ITorex(msg.sender), trader);
-                    }
+        // Unless deleting a flow, we expect an optional (distributor, referrer) is provided through the userData.
+        // When deleting the flow (newFlowRate == 0), distributor and referrer are reset to NONE.
+        if (newFlowRate > 0) {
+            // - userData is optional.
+            // - when provided, its schema: (address distributor, address referrer)
+            if (userDataRaw.length > 0) {
+                // This may revert, and it will make create/update flow fail.
+                userData = abi.decode(userDataRaw, (InFlowUserData));
+                if (trader == userData.referrer) revert NO_SELF_REFERRAL();
+            } else {
+                // during update flow, we keep same distributor and referrer
+                if (prevFlowRate > 0) {
+                    userData = InFlowUserData({
+                        distributor: DistributionFeeDIP.getCurrentDistributor(ITorex(msg.sender), trader),
+                        referrer : QuadraticEmissionTIP.getCurrentReferrer(ITorex(msg.sender), trader)
+                    });
                 }
             }
+        }
 
-            // Note, we track trader instead of trader's pod here
+        // Update global distribution stats, this provides the stats necessary for ranking distributors
+        {
+
+            // Note, we track trader's instead of trader's pod here
             DistributionFeeDIP.updateDistributionStats(ITorex(msg.sender),
-                                                       trader, distributor,
+                                                       trader, userData.distributor,
                                                        prevFlowRate, newFlowRate);
         }
 
         // To support sleep pod, modifying these value in-place, to workaround solidity stack too deep issue
         trader = address(InitialStakingTIP.getOrCreateSleepPod(sleepPodBeacon, trader));
-        referrer = address(InitialStakingTIP.getOrCreateSleepPod(sleepPodBeacon, referrer));
+        userData.referrer = address(InitialStakingTIP.getOrCreateSleepPod(sleepPodBeacon, userData.referrer));
 
         // Updating quadratic emission weights.
         //
@@ -236,10 +252,10 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
         //    instead. This is to a) minimize the cost trader needs to pay for each trade; b) minimize any potential
         //    reverts during a flow deletion callback.
         QuadraticEmissionTIP.onInFlowChanged(emissionTreasury, ITorex(msg.sender),
-                                             trader, referrer,
+                                             trader, userData.referrer,
                                              prevFlowRate, newFlowRate);
 
-        return toInt96(newFlowRate * IN_TOKEN_FEE_PM / INT_100PCT_PM);
+        return toInt96(newFlowRate * int256(IN_TOKEN_FEE_PM) / INT_100PCT_PM);
     }
 
     // @inheritdoc ITorexController
@@ -258,15 +274,20 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
      * Initial Staking TIP
      ******************************************************************************************************************/
 
+    /// Get the sleep pod for the staker. For the opposite, one must parse the SleepPodCreated off-chain.
     function getSleepPod(address staker) public view
         returns (SleepPod sleepPod)
     {
         return InitialStakingTIP.getSleepPod(staker);
     }
 
+    /// The workhorse function of updateStake/increaseStake/decreaseStake
     function _updateStake(address staker, ITorex torex, uint256 newStakedAmount) internal
         onlyRegisteredTorex(address(torex))
     {
+        if (newStakedAmount > 0 && newStakedAmount < MINIMUM_STAKING_AMOUNT)
+            revert MINIMUM_STAKING_AMOUNT_REQUIRED();
+
         // 1. For sleep pods, connect them to the emission pools
         _ensureSleepPodPoolConnections(staker);
 
@@ -286,16 +307,18 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
         _updateStake(msg.sender, torex, newStakedAmount);
     }
 
-    function increaseStake(ITorex torex, uint256 addStake) external
+    /// Increase the staked amount of the `msg.sender` for the `torex`.
+    function increaseStake(ITorex torex, uint256 amount) external
     {
         uint256 stakedAmount = getStakedAmountOf(torex, msg.sender);
-        return _updateStake(msg.sender, torex, stakedAmount + addStake);
+        return _updateStake(msg.sender, torex, stakedAmount + amount);
     }
 
-    function decreaseStake(ITorex torex, uint256 addStake) external
+    /// Decrease the staked amount of the `msg.sender` for the `torex`.
+    function decreaseStake(ITorex torex, uint256 amount) external
     {
         uint256 stakedAmount = getStakedAmountOf(torex, msg.sender);
-        return _updateStake(msg.sender, torex, stakedAmount - addStake); // solidity will check overflow
+        return _updateStake(msg.sender, torex, stakedAmount - amount); // solidity will check overflow
     }
 
     /// Get the staked amount of the `staker` to the `torex`.
@@ -305,6 +328,7 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
         return InitialStakingTIP.getStakeOfPod(torex, staker);
     }
 
+    /// Get the total stakeable amount for the `staker`.
     function getStakeableAmount(address staker) external view
         returns (uint256 amount)
     {
@@ -319,7 +343,7 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
             ISuperfluidPool pool = emissionTreasury.getEmissionPool(address(torexes[i]));
             if (!boringToken.isMemberConnected(address(pool), address(sleepPod))) {
                 amount += SafeCast.toUint256(pool.getClaimable(address(sleepPod), SafeCast.toUint32(block.timestamp)));
-            }
+            } // else balance is connected and directly available from the pool
         }
     }
 
@@ -330,6 +354,7 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
         return BasicStakingTIP.getTotalStakedAmount(torex);
     }
 
+    /// This scales the staked amount to fee pool units. See BasicStakingTIP.scaleStakedAmountToFeePoolUnits.
     function getFeePoolScaler(ITorex torex) external view
         returns (Scaler scaler)
     {
@@ -365,74 +390,75 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
 
     uint256 constant public QE_REFERRAL_BONUS = QuadraticEmissionTIP.REFERRAL_BONUS;
 
-    function isQEEnabledForTorex(ITorex torex) external view returns (bool) {
-        return QuadraticEmissionTIP.isQEEnabledForTorex(torex);
-    }
-
+    /// This scales in token flow rate to boring emission pool units.
+    /// See QuadraticEmissionTIP.scaleInTokenFlowRateToBoringPoolUnits.
     function getBoringPoolScaler(ITorex torex) external view
         returns (Scaler scaler)
     {
         return QuadraticEmissionTIP.getBoringPoolScaler(torex);
     }
 
-    function getCurrentReferrer(ITorex torex, address trader) internal view returns (address referrer) {
+    /// Quadratic emission target total emission rate is updated through `govQEUpdateTargetTotalEmissionRate`.
+    function getQETargetTotalEmissionRate() external view returns (int96) {
+        return QuadraticEmissionTIP.getTargetTotalEmissionRate();
+    }
+
+    /// Quadratic emission is enabled for torex through `govQEEnableForTorex`.
+    function isQEEnabledForTorex(ITorex torex) external view returns (bool) {
+        return QuadraticEmissionTIP.isQEEnabledForTorex(torex);
+    }
+
+    /// Query who is the current referrer for the trader on the torex.
+    function getCurrentReferrer(ITorex torex, address trader) external view returns (address referrer) {
         return QuadraticEmissionTIP.getCurrentReferrer(torex, trader);
     }
 
-    struct TorexQEMetadata {
-        ITorex torex;
-        uint256 q;
-    }
-    function debugInfoQE() external view
-        returns (int96 targetTotalEmissionRate, uint256 qqSum, TorexQEMetadata[] memory torexMetadata)
+    /// Query additional reward rate information for an trader.
+    function getMyBoringRewardInfo(ITorex torex, address me) external view
+        returns (int96 totalRewardRate, int96 tradingRewardRate)
     {
-        ITorex[] memory torexes = QuadraticEmissionTIP.listEnabledTorexes();
-        torexMetadata = new TorexQEMetadata[](torexes.length);
-        for (uint256 i = 0; i < torexes.length; i++) {
-            ITorex torex = torexes[i];
-            torexMetadata[i] = TorexQEMetadata(torex, QuadraticEmissionTIP.debugInfoTorex(torex));
+        address myPod = address(getSleepPod(me));
+        (ISuperToken inToken,) = torex.getPairedTokens();
+        int96 tradingFlowRate = inToken.getFlowRate(me, address(torex));
+        uint256 traderUnits = QuadraticEmissionTIP.scaleInTokenFlowRateToBoringPoolUnits(torex, tradingFlowRate);
+        uint256 allMyUnits = emissionTreasury.getMemberEmissionUnits(address(torex), myPod);
+        totalRewardRate = emissionTreasury.getMemberEmissionRate(address(torex), myPod);
+        if (allMyUnits > 0) {
+            tradingRewardRate = toInt96(SafeCast.toUint256(totalRewardRate)
+                                        * uint256(traderUnits) / uint256(allMyUnits));
         }
-        return (QuadraticEmissionTIP.getTargetTotalEmissionRate(),
-                QuadraticEmissionTIP.debugInfoQQSum(),
-                torexMetadata);
     }
 
     /*******************************************************************************************************************
      * Distribution Fee DIP
      ******************************************************************************************************************/
 
+    /// Distribution tax rate of the total in token fee.
     uint256 constant public DISTRIBUTION_TAX_RATE_PM = DistributionFeeDIP.DISTRIBUTION_TAX_RATE_PM;
 
-    function getCurrentDistributor(ITorex torex, address trader) external view
+    /// @inheritdoc IDistributorStatsProvider
+    function getCurrentDistributor(ITorex torex, address trader) override external view
         returns (address distributor)
     {
         return DistributionFeeDIP.getCurrentDistributor(torex, trader);
     }
 
-    function getDistributorStats(ITorex torex, address distributor) external view
+    /// @inheritdoc IDistributorStatsProvider
+    function getDistributorStats(ITorex torex, address distributor) override external view
         returns (int256 distributedVolume, int96 totalFlowRate)
     {
         return DistributionFeeDIP.getDistributorStats(torex, distributor);
     }
 
-    function getTotalityStats(ITorex torex) external view
+    /// @inheritdoc IDistributorStatsProvider
+    function getTotalityStats(ITorex torex) override external view
         returns (int256 distributedVolume, int96 totalFlowRate)
     {
         return DistributionFeeDIP.getTotalityStats(torex);
     }
 
-    function getDistributorUnits(ITorex torex, address distributor) external override view
-        returns (uint128)
-    {
-        (int256 dvol,) = DistributionFeeDIP.getDistributorStats(torex, distributor);
-        (int256 tvol,) = DistributionFeeDIP.getTotalityStats(torex);
-        if (tvol > 0) {
-            return uint128(SafeCast.toUint256(dvol * INT_100PCT_PM / tvol));
-        } else return 0;
-    }
-
     /*******************************************************************************************************************
-     * Governance
+     * Governance (onlyOwners and Registerred Torexes)
      ******************************************************************************************************************/
 
     function govQEEnableForTorex(ITorex torex) external
@@ -448,9 +474,59 @@ contract SuperBoring is ITorexController, Ownable, IDistributorUnitsProvider {
         QuadraticEmissionTIP.updateTargetTotalEmissionRate(r);
     }
 
-    function govUpgradeEmissionTreasuryLogic(EmissionTreasury newLogic) external
+    function govUpdateLogic(// SleepPod newSleepPodLogic, /* code size limit, deferred */
+                            EmissionTreasury newEmissionTreasuryLogic,
+                            DistributionFeeManager newDistributionFeeManagerLogic) external
         onlyOwner
     {
-        emissionTreasury.updateCode(address(newLogic));
+        /* if (address(newSleepPodLogic) != address(0)) { */
+        /*     sleepPodBeacon.upgradeTo(address(newSleepPodLogic)); */
+        /* } */
+        if (address(newEmissionTreasuryLogic) != address(0)) {
+            emissionTreasury.updateCode(address(newEmissionTreasuryLogic));
+        }
+        if (address(newDistributionFeeManagerLogic) != address(0)) {
+            distributionFeeManager.updateCode(address(newDistributionFeeManagerLogic));
+        }
     }
+
+    /*******************************************************************************************************************
+     * UUPS Upgradability
+     ******************************************************************************************************************/
+
+    function proxiableUUID() public pure override returns (bytes32) {
+        return keccak256("superboring.contracts.SuperBoring.implementation");
+    }
+
+    function initialize(address owner) external initializer {
+        _transferOwnership(owner);
+    }
+
+    function updateCode(address newAddress) public override
+        onlyOwner
+    {
+        _updateCodeAddress(newAddress);
+    }
+}
+
+/// Create the SuperBoring contract. !WARNING! It is uninitialized, operator must call .initialize(newOwner).
+function createSuperBoring(ISuperToken boringToken,
+                           TorexFactory tokenFactory,
+                           EmissionTreasury emissionTreasury,
+                           DistributionFeeManager distributionFeeManager,
+                           SuperBoring.Config memory config) returns (SuperBoring) {
+    UUPSProxy sb = new UUPSProxy();
+    UpgradeableBeacon sleepPodBeacon = createSleepPodBeacon(address(sb), boringToken);
+    sleepPodBeacon.transferOwnership(address(sb));
+
+    SuperBoring logic = new SuperBoring(boringToken,
+                                        tokenFactory,
+                                        emissionTreasury,
+                                        distributionFeeManager,
+                                        sleepPodBeacon,
+                                        config);
+    logic.castrate();
+    sb.initializeProxy(address(logic));
+
+    return SuperBoring(address(sb));
 }

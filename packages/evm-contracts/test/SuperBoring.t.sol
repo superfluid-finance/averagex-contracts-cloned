@@ -4,10 +4,13 @@ pragma solidity 0.8.23;
 import { console2 } from "forge-std/Test.sol";
 
 import { SuperTokenV1Library, deployPureSuperToken } from "../src/libs/SuperTokenExtra.sol";
-import { UINT_100PCT_PM, INT_100PCT_PM } from "../src/libs/MathExtra.sol";
+import { UINT_100PCT_PM } from "../src/libs/MathExtra.sol";
 import {
-    SuperBoring, ITorex, TorexFactory, ISuperToken, ISuperfluidPool
+    SuperBoring, createSuperBoring,
+    ITorex, ISuperToken, ISuperfluidPool,
+    IUniswapV3Pool
 } from "../src/SuperBoring.sol";
+import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
 import {
     EmissionTreasury, createEmissionTreasury
 } from "../src/BoringPrograms/EmissionTreasury.sol";
@@ -21,9 +24,10 @@ import { TorexTest } from "./TestCommon.sol";
 using SuperTokenV1Library for ISuperToken;
 
 contract SuperBoringTest is TorexTest {
+    int96   internal constant TARGET_TOTAL_EMISSION_RATE = int96(1e7 ether) / 360 days;
     address internal constant DISTRIBUTOR = address(0x101);
 
-    TorexFactory internal immutable _torexFactory = new TorexFactory();
+    TorexFactory internal _torexFactory;
     ISuperToken internal _boringToken;
     SuperBoring internal _sb;
 
@@ -32,6 +36,7 @@ contract SuperBoringTest is TorexTest {
 
         vm.startPrank(ADMIN);
 
+        _torexFactory = createTorexFactory();
         _boringToken = deployPureSuperToken(_sf.host, "Boring", "SB", 1e10 ether);
 
         EmissionTreasury emissionTreasury = createEmissionTreasury(_boringToken);
@@ -39,11 +44,16 @@ contract SuperBoringTest is TorexTest {
 
         DistributionFeeManager distributionFeeManager = createDistributionFeeManager();
 
-        _sb = new SuperBoring(_boringToken,
-                              _torexFactory,
-                              emissionTreasury,
-                              distributionFeeManager);
+        _sb = createSuperBoring(_boringToken,
+                                _torexFactory,
+                                emissionTreasury,
+                                distributionFeeManager,
+                                SuperBoring.Config({
+                                    inTokenFeePM: 1_0000, // 1%
+                                    minimumStakingAmount: 0 // no minimum staking amount for testing
+                                }));
 
+        _sb.initialize(ADMIN);
         emissionTreasury.initialize(address(_sb));
         distributionFeeManager.initialize(address(_sb));
 
@@ -51,8 +61,10 @@ contract SuperBoringTest is TorexTest {
     }
 
     function _createTorex() internal {
-        _torex = _sb.createTorex(_createDefaultConfig(),
-                                 -12 /* feePoolScalerN10Pow */, -12 /* boringPoolScalerN10Pow */);
+        _torex = _sb.createUniV3PoolTwapObserverAndTorex(_createDefaultConfig(),
+                                                         -12 /* feePoolScalerN10Pow */,
+                                                         -12 /* boringPoolScalerN10Pow */,
+                                                         IUniswapV3Pool(address(0)), false /* inverseOrder */);
         _expectedFeePM = _sb.IN_TOKEN_FEE_PM();
     }
 
@@ -63,7 +75,7 @@ contract SuperBoringTest is TorexTest {
         _sb.updateStake(_torex, 0); // ensure the pod is created.
         _boringToken.transfer(address(_sb.getSleepPod(ADMIN)), 1e3 ether);
 
-        _sb.govQEUpdateTargetTotalEmissionRate(int96(1e7 ether) / 360 days);
+        _sb.govQEUpdateTargetTotalEmissionRate(TARGET_TOTAL_EMISSION_RATE);
         _sb.govQEEnableForTorex(_torex);
         // Bootstrap emission qqsum by staking at least some stake in it.
         // However, in order for the distributor fee to kick in, let's also
@@ -106,7 +118,7 @@ contract SuperBoringTorexTest is SuperBoringTest {
 
     function testF0tLtC0Z(int64 ps, uint24 dt0,
                           uint80 r, uint24 dt1,
-                          uint24 dt2) public {
+                          uint24 dt2) external {
         _setPriceScaler(ps);
         _doAdvanceTime(dt0);
 
@@ -161,6 +173,53 @@ contract SuperBoringTorexTest is SuperBoringTest {
 
         uint256 stakable = _sb.getStakeableAmount(_toTester(0));
         _updateStake(_torex, 0, stakable);
+    }
+
+    // This test expects that, sometimes, with limited, the transaction could fail, but it should
+    // never trigger a controller internal error due to out-of-gas.
+    function testGasLimit() external {
+        _doChangeFlow(_toTester(0), 42e9);
+        uint256 gasBefore = gasleft();
+        this._stubTestGasLimitDeleteFlow();
+        uint256 gasAfter = gasleft();
+
+        for (uint256 gasLimit = (gasBefore - gasAfter) * 13 / 10; gasLimit > 100e3; gasLimit -= 50e3) {
+            _doChangeFlow(_toTester(0), 42e9);
+
+            try this._stubTestGasLimitDeleteFlow{gas : gasLimit}() {
+                console2.log("passed, gas %d", gasLimit);
+                assertEq(_torex.controllerInternalErrorCounter(), 0, "Unexpected internal error");
+                assertFalse(_sf.host.isAppJailed(_torex), "Unexpected app jail");
+            } catch (bytes memory e) {
+                _parseAndLogRevert(e);
+            }
+        }
+    }
+    function _stubTestGasLimitDeleteFlow() external {
+        vm.startPrank(_toTester(0));
+        _inToken.deleteFlow(_toTester(0), address(_torex), "");
+        vm.stopPrank();
+    }
+
+    function _parseAndLogRevert(bytes memory e) internal {
+        bytes4 selector;
+        string memory reason;
+        // solhint-disable-next-line no-inline-assembly
+        assembly { selector := mload(add(e, 0x20)) }
+        if (selector == bytes4(uint32(0x8c379a0)) /* Error(string) */) {
+            uint256 len;
+            // solhint-disable-next-line no-inline-assembly
+            assembly { len := mload(add(e, 0x44)) }
+            reason = new string(len);
+            // solhint-disable-next-line no-inline-assembly
+            assembly { mstore(add(reason, 0x20), mload(add(e, 0x64))) }
+            console2.log("Error(\"%s\")", string(reason));
+        } else if (selector == bytes4(uint32(0xd4f5d496))) {
+            console2.log("ISuperfluid.HOST_NEED_MORE_GAS()");
+        } else {
+            assertTrue(false, "Unknown revert");
+            console2.log("Revert selector %x, e.len %d", uint32(selector), e.length);
+        }
     }
 }
 
@@ -237,6 +296,18 @@ contract SuperBoringReferralTest is SuperBoringTest {
         _testChangeFlow(b, r2, abi.encode(address(0), _toTester(c)));
         uint128 u3 = pool.getUnits(address(_sb.getSleepPod(_toTester(b))));
         assertEq(u2, u3, "B's Referrer bonus should not disappear");
+
+        // trigger the reward emission adjustment for the torex
+        _testMoveLiquidity();
+
+        console2.log("!!!! 3", pool.getTotalUnits(), u3);
+        console2.log("!!!! 3.1", uint256(int256(pool.getTotalFlowRate())));
+        console2.log("!!!! 3.2", uint256(int256(pool.getMemberFlowRate(address(_sb.getSleepPod(_toTester(b)))))));
+
+        (int96 totalRewardRate, int96 tradingRewardRate) = _sb.getMyBoringRewardInfo(_torex, _toTester(b));
+        assertGt(totalRewardRate, 0, "totalRewardRate > 0");
+        assertGt(tradingRewardRate, 0, "tradingRewardRate > 0");
+        assertGt(totalRewardRate, tradingRewardRate, "totalRewardRate > tradingRewardRate");
     }
 
     function testNoSelfReferral() external {
@@ -291,7 +362,7 @@ contract SuperBoringDistributionFeeTest is SuperBoringTest {
         if (// slightly sloppy hard coded number as test condition, factors:
             // 1) DistributionFeeManager's pool units
             // 2) Torex feeDistributionPool's pool units
-            int256(uint256(r1)) * _sb.IN_TOKEN_FEE_PM() / INT_100PCT_PM  > 1e8
+            r1 * _sb.IN_TOKEN_FEE_PM() / UINT_100PCT_PM  > 1e8
             && dt1 > 0 && dt2 > 0) {
             assertGt(_inToken.balanceOf(DISTRIBUTOR), 0, "Some distributor fee expected");
         }

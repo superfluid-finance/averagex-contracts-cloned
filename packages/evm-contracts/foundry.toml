@@ -3,12 +3,13 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.23"
-
-gas_reports = ["MockTorex"]
-
+evm_version = 'paris'
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
 [profile.default.fuzz]
+runs = 3000
+
+[profile.default.ci]
 runs = 1000
 
 [profile.tdd.fuzz]

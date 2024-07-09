@@ -17,7 +17,7 @@ import { ITorex } from "../interfaces/torex/ITorex.sol";
  *
  * Note:
  * - Stakers stakes boring token and earn fees.
- * - The problem allows the separation of staker and feeRecipient.
+ * - The implementation also allows the separation of staker and feeRecipient.
  */
 library BasicStakingTIP {
     /// The state for the torex.
