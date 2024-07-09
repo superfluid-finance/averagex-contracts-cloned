@@ -7,9 +7,8 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 import {
-    ISuperfluid, ISuperToken, ISuperTokenFactory, IERC20Metadata
+    ISuperfluid, ISuperToken, IERC20Metadata
 } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
-import { PureSuperToken } from "@superfluid-finance/ethereum-contracts/contracts/tokens/PureSuperToken.sol";
 
 import { getDiscountFactor } from "../src/libs/DiscountFactor.sol";
 import { Scaler, getScaler10Pow } from "../src/libs/Scaler.sol";
