@@ -13,6 +13,8 @@ import { PureSuperToken } from "@superfluid-finance/ethereum-contracts/contracts
 
 import { getDiscountFactor } from "../src/libs/DiscountFactor.sol";
 import { Scaler, getScaler10Pow } from "../src/libs/Scaler.sol";
+import { deployPureSuperToken } from "../src/libs/SuperTokenExtra.sol";
+
 import { Torex, ITorexController } from "../src/Torex.sol";
 import { UniswapV3PoolTwapObserver, ITwapObserver } from "../src/UniswapV3PoolTwapObserver.sol";
 import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
@@ -63,22 +65,6 @@ abstract contract DeploymentScriptBase is Script {
             console.log("!! _showGitRevision: FFI not enabled");
         }
     }
-}
-
-/***********************************************************************************************************************
- * Superfluid Extra Contracts (TODO: move some to monorepo)
- **********************************************************************************************************************/
-
-function deployPureSuperToken(ISuperfluid host, string memory name, string memory symbol, uint256 initialSupply)
-    returns (ISuperToken pureSuperToken)
-{
-    ISuperTokenFactory factory = host.getSuperTokenFactory();
-
-    PureSuperToken pureSuperTokenProxy = new PureSuperToken();
-    factory.initializeCustomSuperToken(address(pureSuperTokenProxy));
-    pureSuperTokenProxy.initialize(name, symbol, initialSupply);
-
-    pureSuperToken = ISuperToken(address(pureSuperTokenProxy));
 }
 
 contract DeployPureSuperToken is DeploymentScriptBase {
