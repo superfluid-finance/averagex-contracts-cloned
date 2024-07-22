@@ -1,5 +1,5 @@
 // solhint-disable reentrancy
-pragma solidity 0.8.23;
+pragma solidity ^0.8.26;
 
 import { Test, console, console2 } from "forge-std/Test.sol";
 

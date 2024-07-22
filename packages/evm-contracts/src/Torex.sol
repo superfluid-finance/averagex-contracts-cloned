@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity ^0.8.26;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -37,6 +37,10 @@ import { TorexCore } from "./TorexCore.sol";
  *
  * CHANGELOG:
  *
+ * [1.0.0-rc4.dev]
+ *
+ * - Requiring solc 0.8.26.
+ *
  * [1.0.0-rc3] - 2024-06-25
  *
  * Added:
@@ -58,7 +62,7 @@ import { TorexCore } from "./TorexCore.sol";
  * - Torex uses SuperTokenV1Library.getGDAFlowInfo in _onInFlowChanged.
  */
 contract Torex is TorexCore, CFASuperAppBase, ITorex {
-    string public constant VERSION = "1.0.0-rc3";
+    string public constant VERSION = "1.0.0-rc4.dev";
 
     using SuperTokenV1Library for ISuperToken;
 

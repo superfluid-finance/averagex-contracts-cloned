@@ -33,7 +33,7 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        solcVer = "solc_0_8_23";
+        solcVer = "solc_0_8_26";
         pkgs = import nixpkgs {
           inherit system;
           overlays = [

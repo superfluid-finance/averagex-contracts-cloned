@@ -9,8 +9,11 @@ evm_version = 'paris'
 [profile.default.fuzz]
 runs = 3000
 
-[profile.default.ci]
+[profile.tdd.fuzz]
+runs = 100
+
+[profile.ci.fuzz]
 runs = 1000
 
-[profile.tdd.fuzz]
+[profile.coverage.fuzz]
 runs = 100

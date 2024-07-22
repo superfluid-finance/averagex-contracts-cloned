@@ -6151,62 +6151,6 @@ export const superBoringABI = [
       },
       { name: 'feePoolScalerN10Pow', internalType: 'int8', type: 'int8' },
       { name: 'boringPoolScalerN10Pow', internalType: 'int8', type: 'int8' },
-    ],
-    name: 'createTorex',
-    outputs: [
-      { name: 'torex', internalType: 'contract Torex', type: 'address' },
-    ],
-  },
-  {
-    stateMutability: 'nonpayable',
-    type: 'function',
-    inputs: [
-      {
-        name: 'torexConfig',
-        internalType: 'struct Torex.Config',
-        type: 'tuple',
-        components: [
-          {
-            name: 'inToken',
-            internalType: 'contract ISuperToken',
-            type: 'address',
-          },
-          {
-            name: 'outToken',
-            internalType: 'contract ISuperToken',
-            type: 'address',
-          },
-          {
-            name: 'observer',
-            internalType: 'contract ITwapObserver',
-            type: 'address',
-          },
-          {
-            name: 'discountFactor',
-            internalType: 'DiscountFactor',
-            type: 'uint256',
-          },
-          { name: 'twapScaler', internalType: 'Scaler', type: 'int256' },
-          {
-            name: 'outTokenDistributionPoolScaler',
-            internalType: 'Scaler',
-            type: 'int256',
-          },
-          {
-            name: 'controller',
-            internalType: 'contract ITorexController',
-            type: 'address',
-          },
-          {
-            name: 'controllerSafeCallbackGasLimit',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'maxAllowedFeePM', internalType: 'uint256', type: 'uint256' },
-        ],
-      },
-      { name: 'feePoolScalerN10Pow', internalType: 'int8', type: 'int8' },
-      { name: 'boringPoolScalerN10Pow', internalType: 'int8', type: 'int8' },
       {
         name: 'uniV3Pool',
         internalType: 'contract IUniswapV3Pool',
@@ -6224,7 +6168,7 @@ export const superBoringABI = [
     type: 'function',
     inputs: [
       { name: 'torex', internalType: 'contract ITorex', type: 'address' },
-      { name: 'addStake', internalType: 'uint256', type: 'uint256' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'decreaseStake',
     outputs: [],
@@ -6384,6 +6328,13 @@ export const superBoringABI = [
   {
     stateMutability: 'view',
     type: 'function',
+    inputs: [],
+    name: 'getQETargetTotalEmissionRate',
+    outputs: [{ name: '', internalType: 'int96', type: 'int96' }],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
     inputs: [{ name: 'staker', internalType: 'address', type: 'address' }],
     name: 'getSleepPod',
     outputs: [
@@ -6460,12 +6411,17 @@ export const superBoringABI = [
     type: 'function',
     inputs: [
       {
-        name: 'newLogic',
+        name: 'newEmissionTreasuryLogic',
         internalType: 'contract EmissionTreasury',
         type: 'address',
       },
+      {
+        name: 'newDistributionFeeManagerLogic',
+        internalType: 'contract DistributionFeeManager',
+        type: 'address',
+      },
     ],
-    name: 'govUpgradeEmissionTreasuryLogic',
+    name: 'govUpdateLogic',
     outputs: [],
   },
   {
@@ -6473,7 +6429,7 @@ export const superBoringABI = [
     type: 'function',
     inputs: [
       { name: 'torex', internalType: 'contract ITorex', type: 'address' },
-      { name: 'addStake', internalType: 'uint256', type: 'uint256' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'increaseStake',
     outputs: [],
@@ -6504,7 +6460,7 @@ export const superBoringABI = [
       { name: '', internalType: 'uint256', type: 'uint256' },
       { name: 'newFlowRate', internalType: 'int96', type: 'int96' },
       { name: '', internalType: 'uint256', type: 'uint256' },
-      { name: 'userData', internalType: 'bytes', type: 'bytes' },
+      { name: 'userDataRaw', internalType: 'bytes', type: 'bytes' },
     ],
     name: 'onInFlowChanged',
     outputs: [{ name: 'newFeeFlowRate', internalType: 'int96', type: 'int96' }],
@@ -6777,13 +6733,26 @@ export const superBoringABI = [
         indexed: true,
       },
       {
-        name: 'stakedAmount',
+        name: 'newStakedAmount',
         internalType: 'uint256',
         type: 'uint256',
         indexed: false,
       },
     ],
     name: 'StakeUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'targetTotalEmissionRate',
+        internalType: 'int96',
+        type: 'int96',
+        indexed: false,
+      },
+    ],
+    name: 'TargetTotalEmissionRateUpdated',
   },
   {
     type: 'event',
