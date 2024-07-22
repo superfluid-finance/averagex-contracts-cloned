@@ -39,6 +39,10 @@ interface ITorexController {
  * @title Interface for torex
  */
 interface ITorex {
+    /// Return the TOREX version.
+    // solhint-disable-next-line func-name-mixedcase
+    function VERSION() external view returns (string memory);
+
     /// Torex controller that controls this torex.
     function controller() external view returns (ITorexController);
 

@@ -5,6 +5,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 import { UUPSProxiable } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxiable.sol";
 import { UUPSProxy } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxy.sol";
@@ -263,10 +264,35 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         onlyRegisteredTorex(msg.sender)
         returns (bool)
     {
+        ITorex torex = ITorex(msg.sender);
+
+        /* !!!!!!!!!!!!!!!!!!!! Torex 1.0.0-rc3 Quirk !!!!!!!!!!!!!!!!!!!!
+         * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+        // NOTE:
+        // - For Torex 1.0.0-rc3, there was a bug that caused the callback to be called twice. This guard is to address
+        // such a quirk.
+        // - this can also be implemented differently using eip-1153, but that requires "cancun" availability.
+        bool[1] storage rc3guard;
+        // keccak256("onLiquidityMovedCalled")
+        // solhint-disable-next-line no-inline-assembly
+        assembly { rc3guard.slot := 0x5cf275d110f76ebbea56bbc343cc89db4174cffae57aaed7434ab7e73025c200 }
+        if (Strings.equal(torex.VERSION(), "1.0.0-rc3")) {
+            if (!rc3guard[0]) {
+                // The first time is a unsafe callback.
+                rc3guard[0] = true;
+                return true;
+            } else {
+                // the second time is a safe callback.
+                rc3guard[0] = false;
+            }
+        }
+        /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+
         // Let liquidity movers pay for the emission adjustment for each torex.
-        QuadraticEmissionTIP.adjustEmission(emissionTreasury, ITorex(msg.sender));
+        QuadraticEmissionTIP.adjustEmission(emissionTreasury, torex);
         // Let liquidity movers pay for the distribution fee program adjustment, too.
-        DistributionFeeDIP.adjustDistributionFeeUnits(distributionFeeManager, ITorex(msg.sender));
+        DistributionFeeDIP.adjustDistributionFeeUnits(distributionFeeManager, torex);
+
         return true;
     }
 

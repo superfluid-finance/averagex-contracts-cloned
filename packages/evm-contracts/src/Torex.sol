@@ -40,6 +40,7 @@ import { TorexCore } from "./TorexCore.sol";
  * [1.0.0-rc4.dev]
  *
  * - Requiring solc 0.8.26.
+ * - ITorex interface now has VERSION function.
  *
  * [1.0.0-rc3] - 2024-06-25
  *
@@ -62,7 +63,7 @@ import { TorexCore } from "./TorexCore.sol";
  * - Torex uses SuperTokenV1Library.getGDAFlowInfo in _onInFlowChanged.
  */
 contract Torex is TorexCore, CFASuperAppBase, ITorex {
-    string public constant VERSION = "1.0.0-rc4.dev";
+    string public constant override VERSION = "1.0.0-rc4.dev";
 
     using SuperTokenV1Library for ISuperToken;
 
