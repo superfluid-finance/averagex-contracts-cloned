@@ -37,10 +37,14 @@ import { TorexCore } from "./TorexCore.sol";
  *
  * CHANGELOG:
  *
- * [1.0.0-rc4.dev]
+ * [1.0.0-rc4.dev] - ...
  *
+ * Changed:
  * - Requiring solc 0.8.26.
  * - ITorex interface now has VERSION function.
+ *
+ * Fixes:
+ * - onLiquidityMoved was called twice.
  *
  * [1.0.0-rc3] - 2024-06-25
  *
@@ -338,7 +342,6 @@ contract Torex is TorexCore, CFASuperAppBase, ITorex {
     /// @inheritdoc ITorex
     function moveLiquidity(bytes calldata moverData) external override returns (LiquidityMoveResult memory result) {
         result = _moveLiquidity(moverData);
-        assert(controller.onLiquidityMoved(result));
         {
             bool requireSafeCallback = true; // always require safe callback to not block liquidity movements
             bytes memory callData = abi.encodeCall(controller.onLiquidityMoved, (result));
