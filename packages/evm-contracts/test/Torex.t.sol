@@ -59,16 +59,16 @@ contract TorexControllerTest is TorexTest {
         assertEq(_m.onInFlowChangedCounter(), 1);
     }
 
-    function testOnInFloCreatedFailure() external {
+    function testOnInFlowCreatedFailure() external {
         _m.markNextOnInFlowChangedToFail();
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(ERROR_SELECTOR, "onInFlowChanged"));
         this._stubDoChangeFlow(42);
     }
 
-    function testOnInFloUpdatedFailure() external {
+    function testOnInFlowUpdatedFailure() external {
         this._stubDoChangeFlow(42);
         _m.markNextOnInFlowChangedToFail();
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(ERROR_SELECTOR, "onInFlowChanged"));
         this._stubDoChangeFlow(69);
     }
 

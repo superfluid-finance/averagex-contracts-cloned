@@ -313,10 +313,7 @@ contract SuperBoringReferralTest is SuperBoringTest {
     function testNoSelfReferral() external {
         vm.expectRevert(SuperBoring.NO_SELF_REFERRAL.selector);
         // Bundle a seris of internal calls to an external call in order to capture the revert.
-        this._stubTestNoSelfReferral();
-    }
-    function _stubTestNoSelfReferral() external {
-        _doChangeFlow(_toTester(0), int96(42e18) / 1 days, abi.encode(address(0), _toTester(0)));
+        this.doChangeFlow(_toTester(0), int96(42e18) / 1 days, abi.encode(address(0), _toTester(0)));
     }
 }
 
@@ -366,6 +363,17 @@ contract SuperBoringDistributionFeeTest is SuperBoringTest {
             && dt1 > 0 && dt2 > 0) {
             assertGt(_inToken.balanceOf(DISTRIBUTOR), 0, "Some distributor fee expected");
         }
+    }
+
+    function testInvalidDistributorAddresses() external {
+        vm.expectRevert(abi.encodeWithSelector(ERROR_SELECTOR, "invalid distributor"));
+        this.doChangeFlow(_toTester(0), 42, abi.encode(address(1), address(0)));
+
+        DistributionFeeManager dfm = _sb.distributionFeeManager();
+        vm.expectRevert("invalid distributor");
+        dfm.sync(_torex, address(0));
+        vm.expectRevert("invalid distributor");
+        dfm.sync(_torex, address(1));
     }
 }
 

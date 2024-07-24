@@ -26,7 +26,7 @@ import { DistributionFeeManager } from "./DistributionFeeManager.sol";
  */
 library DistributionFeeDIP {
     /// This is a pseudo distributor address for tracking totality stats.
-    address constant private _PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS = address(1);
+    address constant internal PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS = address(1);
 
     /// Distribution tax rate of the total in token fee.
     uint256 constant internal DISTRIBUTION_TAX_RATE_PM = 90_0000; // 90%, high tax for the early development phase
@@ -56,19 +56,28 @@ library DistributionFeeDIP {
     /// Update distribution stats where a new distributor may replace the previous distributor
     function updateDistributionStats(ITorex torex, address trader, address distributor,
                                      int96 prevFlowRate, int96 newFlowRate) internal {
+        // filter out special addresses
+        require(distributor != PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS, "invalid distributor");
+
         Storage storage $ = _getStorage();
         Time tnow = Time.wrap(uint32(block.timestamp));
 
         address prevDistributor = $.distributors[torex][trader];
+        // stats for the previous distributor (current)
         DistributionStats storage curStats = $.distributionStats[torex][prevDistributor];
-        DistributionStats storage totalityStats = $.distributionStats[torex][_PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS];
+        // totality stats
+        DistributionStats storage totalityStats = $.distributionStats[torex][PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS];
         if (prevDistributor == distributor) {
+            // update stats of the same distributor
             (curStats.particle, totalityStats.particle) = curStats.particle.shift_flow2b
                 (totalityStats.particle, FlowRate.wrap(newFlowRate - prevFlowRate), tnow);
         } else {
+            // stats for the new distributor
             DistributionStats storage newStats = $.distributionStats[torex][distributor];
+            // update stats for the previous distributor
             (curStats.particle, totalityStats.particle) = curStats.particle.shift_flow2b
                 (totalityStats.particle, FlowRate.wrap(-prevFlowRate), tnow);
+            // update stats for the new distributor
             (newStats.particle, totalityStats.particle) = newStats.particle.shift_flow2b
                 (totalityStats.particle, FlowRate.wrap(newFlowRate), tnow);
         }
@@ -110,7 +119,7 @@ library DistributionFeeDIP {
     function getTotalityStats(ITorex torex) internal view
         returns (int256 distributedVolume, int96 totalFlowRate)
     {
-        (distributedVolume, totalFlowRate) = getDistributorStats(torex, _PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS);
+        (distributedVolume, totalFlowRate) = getDistributorStats(torex, PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS);
         distributedVolume = -distributedVolume;
         totalFlowRate = -totalFlowRate;
     }

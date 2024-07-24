@@ -86,6 +86,10 @@ contract TorexTest is Test {
     using SuperTokenV1Library for ISuperToken;
     using SuperTokenV1LibraryExtension for ISuperToken;
 
+    // currently Superfluid protocol bubbling up the Error(string) as a custom error, and foundry expectRevert does not
+    // understand this distinction.
+    bytes4  internal constant ERROR_SELECTOR = 0x08c379a0;
+
     Scaler  internal constant DEFAULT_IN_TOKEN_FEE_POOL_SCALER = Scaler.wrap(-1e7);
     Scaler  internal constant DEFAULT_OUT_TOKEN_DIST_POOL_SCALER = Scaler.wrap(-1e7);
     uint256 internal constant CONTROLLER_SAFE_CALLBACK_GAS_LIMIT = 2e6; // 2M gas for controller
@@ -224,6 +228,12 @@ contract TorexTest is Test {
         _printTorexState();
         _printTestersState();
         console.log("= END TA_ADVANCE_TIME\n");
+    }
+
+    function doChangeFlow(address byWhom,
+                          int96 newFlowRate,
+                          bytes memory userData) external {
+        _doChangeFlow(byWhom, newFlowRate, userData);
     }
 
     function _doChangeFlow(address byWhom, int96 newFlowRate) internal
