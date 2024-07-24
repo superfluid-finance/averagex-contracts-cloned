@@ -28,7 +28,8 @@ function toUint256(int96 value) pure returns (uint256) {
 }
 
 function toInt96(int256 value) pure returns (int96) {
-    require(value <= int256(type(int96).max), "toInt96(int256)");
+    require(value >= int256(type(int96).min) &&
+            value <= int256(type(int96).max), "toInt96(int256)");
     return int96(value);
 }
 
