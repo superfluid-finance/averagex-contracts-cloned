@@ -83,8 +83,9 @@ library DistributionFeeDIP {
             (newStats.particle, totalityStats.particle) = newStats.particle.shift_flow2b
                 (totalityStats.particle, FlowRate.wrap(newFlowRate), tnow);
         }
+        $.distributors[torex][trader] = distributor;
 
-        emit DistributorUpdated(torex, trader, distributor, prevDistributor);
+        emit DistributorUpdated(torex, trader, prevDistributor, distributor);
     }
 
     /// Perform a distribution fee units update based applying the tax rate.

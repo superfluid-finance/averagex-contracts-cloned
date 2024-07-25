@@ -326,7 +326,10 @@ contract SuperBoringDistributionFeeTest is SuperBoringTest {
     }
 
     function testBasicDistributionFee(uint8 a, uint80 r1, uint24 dt1, uint24 dt2) external {
+        vm.assume(r1 > 0);
+        assertEq(_sb.getCurrentDistributor(_torex, _toTester(a)), address(0), "Wrong current distributor 1");
         _testChangeFlow(a, r1, abi.encode(DISTRIBUTOR, address(0)));
+        assertEq(_sb.getCurrentDistributor(_torex, _toTester(a)), DISTRIBUTOR, "Wrong current distributor 2");
 
         console2.log("Fee distribution pool total units before LM",
                      _torex.feeDistributionPool().getTotalUnits());
