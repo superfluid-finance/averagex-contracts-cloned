@@ -370,8 +370,10 @@ contract SuperBoringDistributionFeeTest is SuperBoringTest {
         this.doChangeFlow(_toTester(0), 42, abi.encode(address(1), address(0)));
 
         DistributionFeeManager dfm = _sb.distributionFeeManager();
-        vm.expectRevert("invalid distributor");
+
+        vm.expectRevert("zero address distributor");
         dfm.sync(_torex, address(0));
+
         vm.expectRevert("invalid distributor");
         dfm.sync(_torex, address(1));
     }

@@ -202,6 +202,13 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         address referrer;
     }
 
+    // workaround for stack too deep for onInFlowChanged
+    struct VarsOnInFlowChanged {
+        address traderPod;
+        address distributor;
+        address referrerPod;
+    }
+
     // @inheritdoc ITorexController
     function onInFlowChanged(address trader,
                              int96 prevFlowRate, int96 /*preFeeFlowRate*/, uint256 /*last Updated*/,
@@ -210,7 +217,9 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         onlyRegisteredTorex(msg.sender)
         returns (int96 newFeeFlowRate)
     {
-        InFlowUserData memory userData;
+        VarsOnInFlowChanged memory vars;
+
+        vars.traderPod = address(InitialStakingTIP.getOrCreateSleepPod(sleepPodBeacon, trader));
 
         // Unless deleting a flow, we expect an optional (distributor, referrer) is provided through the userData.
         // When deleting the flow (newFlowRate == 0), distributor and referrer are reset to NONE.
@@ -219,15 +228,21 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
             // - when provided, its schema: (address distributor, address referrer)
             if (userDataRaw.length > 0) {
                 // This may revert, and it will make create/update flow fail.
-                userData = abi.decode(userDataRaw, (InFlowUserData));
+                InFlowUserData memory userData = abi.decode(userDataRaw, (InFlowUserData));
+
                 if (trader == userData.referrer) revert NO_SELF_REFERRAL();
+                require(DistributionFeeDIP.isValidDistributor(userData.distributor), "invalid distributor");
+
+                vars.distributor = userData.distributor;
+                if (userData.referrer != address(0)) {
+                    vars.referrerPod = address(InitialStakingTIP.getOrCreateSleepPod(sleepPodBeacon,
+                                                                                     userData.referrer));
+                }
             } else {
-                // during update flow, we keep same distributor and referrer
+                // during update flow, we keep same distributor and referrerPod
                 if (prevFlowRate > 0) {
-                    userData = InFlowUserData({
-                        distributor: DistributionFeeDIP.getCurrentDistributor(ITorex(msg.sender), trader),
-                        referrer : QuadraticEmissionTIP.getCurrentReferrer(ITorex(msg.sender), trader)
-                    });
+                    vars.distributor = DistributionFeeDIP.getCurrentDistributor(ITorex(msg.sender), trader);
+                    vars.referrerPod = QuadraticEmissionTIP.getCurrentReferrerPod(ITorex(msg.sender), trader);
                 }
             }
         }
@@ -237,13 +252,9 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
 
             // Note, we track trader's instead of trader's pod here
             DistributionFeeDIP.updateDistributionStats(ITorex(msg.sender),
-                                                       trader, userData.distributor,
+                                                       trader, vars.distributor,
                                                        prevFlowRate, newFlowRate);
         }
-
-        // To support sleep pod, modifying these value in-place, to workaround solidity stack too deep issue
-        trader = address(InitialStakingTIP.getOrCreateSleepPod(sleepPodBeacon, trader));
-        userData.referrer = address(InitialStakingTIP.getOrCreateSleepPod(sleepPodBeacon, userData.referrer));
 
         // Updating quadratic emission weights.
         //
@@ -253,7 +264,7 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         //    instead. This is to a) minimize the cost trader needs to pay for each trade; b) minimize any potential
         //    reverts during a flow deletion callback.
         QuadraticEmissionTIP.onInFlowChanged(emissionTreasury, ITorex(msg.sender),
-                                             trader, userData.referrer,
+                                             vars.traderPod, vars.referrerPod,
                                              prevFlowRate, newFlowRate);
 
         return toInt96(newFlowRate * int256(IN_TOKEN_FEE_PM) / INT_100PCT_PM);
@@ -435,8 +446,8 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
     }
 
     /// Query who is the current referrer for the trader on the torex.
-    function getCurrentReferrer(ITorex torex, address trader) external view returns (address referrer) {
-        return QuadraticEmissionTIP.getCurrentReferrer(torex, trader);
+    function getCurrentReferrerPod(ITorex torex, address trader) external view returns (address referrer) {
+        return QuadraticEmissionTIP.getCurrentReferrerPod(torex, trader);
     }
 
     /// Query additional reward rate information for an trader.

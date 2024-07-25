@@ -29,8 +29,8 @@ library QuadraticEmissionTIP {
     uint256 internal constant REFERRAL_BONUS = 5_0000; // 5% fixed referral bonus
 
     event ReferrerUpdated(ITorex indexed torex,
-                          address indexed trader, uint128 newTraderUnits,
-                          address indexed referrer, uint128 newReferralUnits);
+                          address indexed traderPod, uint128 newTraderUnits,
+                          address indexed referrerPod, uint128 newReferralUnits);
 
     event EmissionUpdated(ITorex indexed torex, int96 emissionRate, uint256 q, uint256 qqSum);
 
@@ -38,7 +38,7 @@ library QuadraticEmissionTIP {
 
     /// Referral data for each trader-referrer pair. It is packed to exact 1-word.
     struct ReferralData {
-        address referrer;
+        address referrerPod;
         uint96  referrerUnits;
     }
 
@@ -115,10 +115,10 @@ library QuadraticEmissionTIP {
 
     // @dev This hook updates flow updater's emission share.
     function onInFlowChanged(EmissionTreasury emissionTreasury, ITorex torex,
-                             address trader, address referrer,
+                             address traderPod, address referrerPod,
                              int96 prevFlowRate, int96 newFlowRate) internal
     {
-        assert(trader != referrer); // please provide a nicer revert in the use-site
+        assert(traderPod != referrerPod); // please provide a nicer revert in the use-site
 
         if (isQEEnabledForTorex(torex)) {
             Storage storage $ = _getStorage();
@@ -129,42 +129,42 @@ library QuadraticEmissionTIP {
             uint128 newTraderUnits = scaleInTokenFlowRateToBoringPoolUnits(torex, newFlowRate);
             {
                 uint128 prevTraderUnits = scaleInTokenFlowRateToBoringPoolUnits(torex, prevFlowRate);
-                emissionTreasury.updateMemberEmissionUnits(address(torex), trader,
-                                                           emissionPool.getUnits(trader)
+                emissionTreasury.updateMemberEmissionUnits(address(torex), traderPod,
+                                                           emissionPool.getUnits(traderPod)
                                                            + newTraderUnits - prevTraderUnits);
             }
 
             // update referrer's reward
-            ReferralData memory oldRefData = $.referrals[torex][trader];
+            ReferralData memory oldRefData = $.referrals[torex][traderPod];
             //   if either there is a new referrer or there was an existing referrer, then we need an update.
-            if (oldRefData.referrer != address(0) || referrer != address(0)) {
+            if (oldRefData.referrerPod != address(0) || referrerPod != address(0)) {
                 uint128 newReferralUnits = SafeCast.toUint128(uint256(newTraderUnits)
                                                               * REFERRAL_BONUS / UINT_100PCT_PM);
-                if (oldRefData.referrer == referrer) { // this branch is a small optimization
+                if (oldRefData.referrerPod == referrerPod) { // this branch is a small optimization
                     // invariant: oldRefData.referrer != referrer != address(0)
-                    emissionTreasury.updateMemberEmissionUnits(address(torex), referrer,
-                                                               emissionPool.getUnits(referrer)
+                    emissionTreasury.updateMemberEmissionUnits(address(torex), referrerPod,
+                                                               emissionPool.getUnits(referrerPod)
                                                                + newReferralUnits - oldRefData.referrerUnits);
                 } else {
-                    if (referrer != address(0)) {
-                        emissionTreasury.updateMemberEmissionUnits(address(torex), referrer,
-                                                                   emissionPool.getUnits(referrer)
+                    if (referrerPod != address(0)) {
+                        emissionTreasury.updateMemberEmissionUnits(address(torex), referrerPod,
+                                                                   emissionPool.getUnits(referrerPod)
                                                                    + newReferralUnits);
                     }
-                    if (oldRefData.referrer != address(0)) {
-                        emissionTreasury.updateMemberEmissionUnits(address(torex), oldRefData.referrer,
-                                                                   emissionPool.getUnits(oldRefData.referrer)
+                    if (oldRefData.referrerPod != address(0)) {
+                        emissionTreasury.updateMemberEmissionUnits(address(torex), oldRefData.referrerPod,
+                                                                   emissionPool.getUnits(oldRefData.referrerPod)
                                                                    - oldRefData.referrerUnits);
                     }
                 }
-                $.referrals[torex][trader] = ReferralData(referrer, toUint96(newReferralUnits));
-                emit ReferrerUpdated(torex, trader, newTraderUnits, referrer, newReferralUnits);
+                $.referrals[torex][traderPod] = ReferralData(referrerPod, toUint96(newReferralUnits));
+                emit ReferrerUpdated(torex, traderPod, newTraderUnits, referrerPod, newReferralUnits);
             }
         }
     }
 
-    function getCurrentReferrer(ITorex torex, address trader) internal view returns (address referrer) {
-        return _getStorage().referrals[torex][trader].referrer;
+    function getCurrentReferrerPod(ITorex torex, address trader) internal view returns (address referrerPod) {
+        return _getStorage().referrals[torex][trader].referrerPod;
     }
 
     function getTargetTotalEmissionRate() internal view returns (int96 targetTotalEmissionRate) {

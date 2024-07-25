@@ -70,6 +70,7 @@ function createSleepPodBeacon(address admin, ISuperToken boringToken) returns (U
 event SleepPodCreated(address indexed staker, SleepPod indexed pod);
 
 function createSleepPod(UpgradeableBeacon sleepPodBeacon, address staker) returns (SleepPod pod) {
+    assert(staker != address(0)); // use-site be aware!
     bytes memory initCall = abi.encodeWithSelector(SleepPod.initialize.selector, staker);
     pod = SleepPod(address(new BeaconProxy(address(sleepPodBeacon), initCall)));
     emit SleepPodCreated(staker, pod);

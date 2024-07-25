@@ -53,12 +53,14 @@ library DistributionFeeDIP {
     // solhint-disable-next-line no-inline-assembly
     function _getStorage() private pure returns (Storage storage $) { assembly { $.slot := _STORAGE_SLOT } }
 
+    function isValidDistributor(address distributor) internal pure returns (bool) {
+        // zero address distributor means distribution without designated distributor; so it is valid.
+        return distributor != PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS;
+    }
+
     /// Update distribution stats where a new distributor may replace the previous distributor
     function updateDistributionStats(ITorex torex, address trader, address distributor,
                                      int96 prevFlowRate, int96 newFlowRate) internal {
-        // filter out special addresses
-        require(distributor != PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS, "invalid distributor");
-
         Storage storage $ = _getStorage();
         Time tnow = Time.wrap(uint32(block.timestamp));
 

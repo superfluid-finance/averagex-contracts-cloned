@@ -62,9 +62,8 @@ contract DistributionFeeManager is UUPSProxiable, Ownable {
     /// This is permission-less, its effect independent of the caller, and idempotent within the same block.
     function sync(ITorex torex, address distributor) public {
         // explicitly reject special addresses
-        require(distributor != address(0) &&
-                distributor != DistributionFeeDIP.PSEUDO_DISTRIBUTOR_FOR_TOTALITY_STATS,
-                "invalid distributor");
+        require(distributor != address(0), "zero address distributor");
+        require(DistributionFeeDIP.isValidDistributor(distributor), "invalid distributor");
 
         // ensure pool is created
         (ISuperToken inToken,) = torex.getPairedTokens();
