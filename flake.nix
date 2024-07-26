@@ -43,12 +43,12 @@
         };
         solhint = with pkgs; buildNpmPackage rec {
           pname = "solhint";
-          version = "5.0.1";
+          version = "5.0.2";
           src = fetchFromGitHub {
             owner = "protofire";
             repo = "solhint";
             rev = "v${version}";
-            hash = "sha256-7lfZGWivJi+E9IMHKA+Cu1215RaMXfFiXZ9nihvIqBU=";
+            hash = "sha256-FAKOGyQN45S9KJk1vWupz0Xj6sU6ozV57nt3KqkYe/I=";
           };
           npmDepsHash = "sha256-dNweOrXTS5lmnj7odCZsChysSYrWYRIPHk4KO1HVTG4=";
           dontNpmBuild = true;
@@ -63,6 +63,7 @@
             jq
             yq
             solhint
+            actionlint
             lcov
             bun
             foundry-bin

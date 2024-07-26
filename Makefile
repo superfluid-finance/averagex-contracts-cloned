@@ -1,6 +1,3 @@
-DEV_TARGETS = test-tdd-evm-contracts lint-evm-contracts
-TDD_FORGE_OPTS = "-vv"
-
 ################################################################################
 # Git Submodule Routines
 ################################################################################
@@ -26,36 +23,28 @@ submodule-deinit:
 # Dev Targets
 ################################################################################
 
-dev:
-	nodemon -e sol -x sh -- -c "make $(DEV_TARGETS) || exit 1"
-
 build: build-evm-contracts
 
 build-evm-contracts:
-	cd packages/evm-contracts && npm run build
+	make -C packages/evm-contracts build
 
 lint: lint-evm-contracts
 
 lint-evm-contracts:
-	cd packages/evm-contracts && npm run lint
+	make -C packages/evm-contracts lint
 
 test: test-ci-evm-contracts
 
 test-tdd-evm-contracts: build-evm-contracts
-	cd packages/evm-contracts && npm run test-tdd -- $(TDD_FORGE_OPTS)
+	make -C packages/evm-contracts test-tdd
 
 test-ci-evm-contracts: build-evm-contracts
-	cd packages/evm-contracts && npm run test-ci
+	make -C packages/evm-contracts test-ci
 
 test-coverage-evm-contracts: build-evm-contracts
-	cd packages/evm-contracts && npm run test-coverage
+	make -C packages/evm-contracts test-coverage
 
-N_FUZZ_CONTRACT ?= SuperBoringTorexStatefulFuzzTest
-N_FUZZ_TEST ?= testStatefullFuzzComplete
-test-n-fuzz: build-evm-contracts
-	cd packages/evm-contracts && ./script/n-fuzz.sh $(N_FUZZ_CONTRACT) $(N_FUZZ_TEST) $(N_FUZZ_EXTRA_OPTS)
-
-@PHONY: dev build build-* lint lint-* test test-*
+@PHONY: build build-* lint lint-* test test-*
 
 love:
 	sl | lolcat

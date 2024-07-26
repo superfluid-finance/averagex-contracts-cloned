@@ -9,12 +9,10 @@
     }
   },
   "scripts": {
-    "lint": "solhint -w 0 `find script src test -name '*.sol' ! -name '.*'`",
-    "build": "forge build",
-    "dev": "npm run test-tdd -- --watch",
-    "test-tdd": "FOUNDRY_PROFILE=tdd forge test",
-    "test-ci": "FOUNDRY_PROFILE=ci forge test -vv",
-    "test-coverage": "FOUNDRY_PROFILE=coverage forge coverage",
+    "dev": "make dev",
+    "build": "make build",
+    "lint": "make lint",
+    "test": "make test-ci",
     "generate-types": "wagmi generate"
   },
   "devDependencies": {
