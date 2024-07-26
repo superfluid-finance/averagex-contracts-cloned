@@ -200,7 +200,6 @@ contract SuperBoringTorexTest is SuperBoringTest {
         _inToken.deleteFlow(_toTester(0), address(_torex), "");
         vm.stopPrank();
     }
-
     function _parseAndLogRevert(bytes memory e) internal {
         bytes4 selector;
         string memory reason;
@@ -220,6 +219,38 @@ contract SuperBoringTorexTest is SuperBoringTest {
             assertTrue(false, "Unknown revert");
             console2.log("Revert selector %x, e.len %d", uint32(selector), e.length);
         }
+    }
+}
+
+contract SuperBoringMoreQETest is SuperBoringTest {
+    function setUp() override public {
+        super.setUp();
+        _createTorex();
+        _connectAllPools();
+    }
+
+    // Problematic case: QE is enabled after the TOREX has been used.
+    function testLatentQE() external {
+        _testChangeFlow(_toTester(0), int96(42e18) / 1 days);
+
+        _doAdvanceTime(1 hours);
+        _testMoveLiquidity();
+
+        _doAdvanceTime(1 hours);
+        uint256 stakeable = _sb.getStakeableAmount(_toTester(0));
+        assertEq(stakeable, 0, "expect no stakes");
+
+        _enableQEForDefaultTorex();
+        _testChangeFlow(_toTester(0), int96(69e18) / 1 days);
+
+        _doAdvanceTime(1 hours);
+        _testMoveLiquidity();
+
+        _doAdvanceTime(1 hours);
+        stakeable = _sb.getStakeableAmount(_toTester(0));
+        assertGt(stakeable, 0, "expect some stakes");
+
+        _updateStake(_torex, 0, stakeable);
     }
 }
 

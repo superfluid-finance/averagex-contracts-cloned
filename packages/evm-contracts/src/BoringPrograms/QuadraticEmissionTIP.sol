@@ -126,12 +126,16 @@ library QuadraticEmissionTIP {
 
             // update trader's reward
             // Assumption: the scaling factor is fixed; otherwise, we would have to store prevTraderUnits.
+            // Regretfully, this should have been a stored value, as it was originally so.
             uint128 newTraderUnits = scaleInTokenFlowRateToBoringPoolUnits(torex, newFlowRate);
             {
                 uint128 prevTraderUnits = scaleInTokenFlowRateToBoringPoolUnits(torex, prevFlowRate);
-                emissionTreasury.updateMemberEmissionUnits(address(torex), traderPod,
-                                                           emissionPool.getUnits(traderPod)
-                                                           + newTraderUnits - prevTraderUnits);
+                emissionTreasury.updateMemberEmissionUnits
+                    (address(torex), traderPod,
+                     // NOTE: QE could be enabled after the TOREX has been active, so this underflow may happen
+                     emissionPool.getUnits(traderPod) + newTraderUnits >= prevTraderUnits
+                     ? emissionPool.getUnits(traderPod) + newTraderUnits  - prevTraderUnits
+                     : 0);
             }
 
             // update referrer's reward
