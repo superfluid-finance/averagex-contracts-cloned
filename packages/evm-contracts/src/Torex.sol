@@ -42,6 +42,7 @@ import { TorexCore } from "./TorexCore.sol";
  * Changed:
  * - Requiring solc 0.8.26.
  * - ITorex interface now has VERSION function.
+ * - New error Torex.LIQUIDITY_MOVER_NO_SAME_BLOCK for disallowing LMEs in the same block.
  *
  * Fixes:
  * - onLiquidityMoved was called twice.

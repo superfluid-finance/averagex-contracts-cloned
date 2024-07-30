@@ -170,10 +170,14 @@ contract TorexTest is Test {
     }
 
     function _createDefaultConfig() virtual internal returns (Torex.Config memory) {
+        MockTorexObserver observer = new MockTorexObserver();
+        // also, to avoid LIQUIDITY_MOVER_NO_SAME_BLOCK, let's advance by 1 second
+        vm.warp(_lastLiquidityMoveTime + 1);
+
         return Torex.Config({
             inToken: _inToken,
             outToken: _outToken,
-            observer: new MockTorexObserver(),
+            observer: observer,
             twapScaler: Scaler.wrap(1),
             discountFactor: DiscountFactor.wrap(0), /* No discount */
             outTokenDistributionPoolScaler: DEFAULT_OUT_TOKEN_DIST_POOL_SCALER,
@@ -218,7 +222,7 @@ contract TorexTest is Test {
      * Test Actions
      ******************************************************************************************************************/
 
-    uint256 private _lastLiquidityMoveTime;
+    uint256 internal _lastLiquidityMoveTime;
     mapping (address => int256) private _outTokenBalances;
 
     function _doAdvanceTime(uint256 dt) internal {

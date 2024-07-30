@@ -42,6 +42,8 @@ abstract contract TorexCore is ReentrancyGuard {
 
     error LIQUIDITY_MOVER_SENT_INSUFFICIENT_OUT_TOKENS();
 
+    error LIQUIDITY_MOVER_NO_SAME_BLOCK();
+
     /*******************************************************************************************************************
      * Configurations and Constructor
      ******************************************************************************************************************/
@@ -131,6 +133,10 @@ abstract contract TorexCore is ReentrancyGuard {
     {
         (result.inAmount, result.minOutAmount, result.durationSinceLastLME, result.twapSinceLastLME) =
             getLiquidityEstimations();
+
+        // To avoid any slim chance for flash-loan or MEV-oriented attacks, we no longer allow same block LMEs.  For
+        // example, for UniswapPool TWAP oracle implementation, there is no strictly-safe implementation for the price.
+        if (result.durationSinceLastLME == 0) revert LIQUIDITY_MOVER_NO_SAME_BLOCK();
 
         // Step 1: Transfer the inAmount of inToken liquidity to the liquidity mover.
         _inToken.transfer(msg.sender, result.inAmount);

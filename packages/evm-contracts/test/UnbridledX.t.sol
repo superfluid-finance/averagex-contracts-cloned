@@ -225,6 +225,9 @@ contract UnbridledDefaultTorexTest is UnbridledTorexTest {
                           uint8 w1, uint80 r1, uint24 dt1,
                           uint24 dt2,
                           uint8 w2, uint80 r2, uint24 dt3) public {
+        // no same block LME
+        vm.assume(dt2 > 0);
+
         _setPriceScaler(ps);
         _doAdvanceTime(dt0);
 
@@ -245,6 +248,9 @@ contract UnbridledDefaultTorexTest is UnbridledTorexTest {
                           uint24 dt2,
                           uint24 dt3,
                           uint8 w2, uint80 r2) public {
+        // no same block LME
+        vm.assume(dt2 > 0);
+
         _setPriceScaler(ps);
         _doAdvanceTime(dt0);
 
@@ -438,7 +444,7 @@ contract UnbridledDefaultTorexTest is UnbridledTorexTest {
         // This triggered a GDA insufficient buffer error once:
         testFtLtFtLZ(2, 0,
                      0, 200, 0,  /* _testChangeFlow(0, 200); _doAdvanceTime(0); */
-                     0,          /* _testMoveLiquidity(); _doAdvanceTime(0); */
+                     1,          /* _testMoveLiquidity(); _doAdvanceTime(1); */
                      0, 400, 0); /* _testChangeFlow(0, 400); _doAdvanceTime(0); */
     }
 
@@ -615,7 +621,12 @@ contract UnbridledTorexStatefulFuzzTest is UnbridledTorexTest {
             if (t == TestActionType.TA_CHANGE_FLOW) {
                 _testChangeFlow(a.w, a.v % type(uint80).max);
             } else if (t== TestActionType.TA_MOVE_LIQUIDITY) {
-                _testMoveLiquidity();
+                if (_torex.getDurationSinceLastLME() > 0) {
+                    _testMoveLiquidity();
+                } else {
+                    vm.expectRevert(TorexCore.LIQUIDITY_MOVER_NO_SAME_BLOCK.selector);
+                    _mockLiquidityMover.triggerLiquidityMovement(_torex);
+                }
             } else if (t == TestActionType.TA_CHANGE_MINIMUM_DEPOSIT) {
                 _setInTokenMinimumDeposit(a.v % type(uint64).max);
             } else if (t == TestActionType.TA_CHANGE_FEE_POOL_UNITS ) {

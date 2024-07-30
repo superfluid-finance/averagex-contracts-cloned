@@ -12,6 +12,7 @@ import {
     createSuperBoringLogic, createSleepPodLogic, createEmissionTreasuryLogic, createDistributionFeeManagerLogic
 } from "../src/SuperBoring.sol";
 import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
+import { TorexCore } from "../src/TorexCore.sol";
 import {
     EmissionTreasury, createEmissionTreasury
 } from "../src/BoringPrograms/EmissionTreasury.sol";
@@ -452,7 +453,12 @@ contract SuperBoringTorexStatefulFuzzTest is SuperBoringTest {
             if (t == TestActionType.TA_CHANGE_FLOW) {
                 _testChangeFlow(a.w, a.v % type(uint80).max);
             } else if (t == TestActionType.TA_MOVE_LIQUIDITY) {
-                _testMoveLiquidity();
+                if (_torex.getDurationSinceLastLME() > 0) {
+                    _testMoveLiquidity();
+                } else {
+                    vm.expectRevert(TorexCore.LIQUIDITY_MOVER_NO_SAME_BLOCK.selector);
+                    _mockLiquidityMover.triggerLiquidityMovement(_torex);
+                }
             } else if (t == TestActionType.TA_STAKE) {
                 address who = _toTester(a.w);
                 uint256 pct = uint256(a.v % 101);
