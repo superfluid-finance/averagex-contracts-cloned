@@ -6,9 +6,10 @@ import { console2 } from "forge-std/Test.sol";
 import { SuperTokenV1Library, deployPureSuperToken } from "../src/libs/SuperTokenExtra.sol";
 import { UINT_100PCT_PM } from "../src/libs/MathExtra.sol";
 import {
-    SuperBoring, createSuperBoring,
-    ITorex, ISuperToken, ISuperfluidPool,
-    IUniswapV3Pool
+    SuperBoring,
+    ITorex, ISuperToken, ISuperfluidPool, IUniswapV3Pool, SleepPod,
+    createSuperBoring,
+    createSuperBoringLogic, createSleepPodLogic, createEmissionTreasuryLogic, createDistributionFeeManagerLogic
 } from "../src/SuperBoring.sol";
 import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
 import {
@@ -474,5 +475,91 @@ contract SuperBoringTorexStatefulFuzzTest is SuperBoringTest {
         Actions[] memory actions2 = new Actions[](actions.length);
         for (uint256 i = 0; i < actions.length; i++) actions2[i] = actions[i];
         _testStatefullFuzz(uint8(TestActionType.TA_STAKE), ps, dt0, actions2);
+    }
+}
+
+contract InvalidLogicContract {
+    function proxiableUUID() public pure returns (bytes32) { return keccak256("joker"); }
+}
+
+contract SuperBoringUpgradabilityTest is SuperBoringTest {
+    function testUpdateLogic() external {
+        vm.startPrank(ADMIN);
+
+        _sb.govUpdateLogic(createSuperBoringLogic(_sb),
+                           SleepPod(address(0)),
+                           EmissionTreasury(address(0)),
+                           DistributionFeeManager(address(0)));
+
+        _sb.govUpdateLogic(SuperBoring(address(0)),
+                           createSleepPodLogic(_sb),
+                           EmissionTreasury(address(0)),
+                           DistributionFeeManager(address(0)));
+
+        _sb.govUpdateLogic(SuperBoring(address(0)),
+                           SleepPod(address(0)),
+                           createEmissionTreasuryLogic(_sb),
+                           DistributionFeeManager(address(0)));
+
+        _sb.govUpdateLogic(SuperBoring(address(0)),
+                           SleepPod(address(0)),
+                           EmissionTreasury(address(0)),
+                           createDistributionFeeManagerLogic(_sb));
+
+        vm.stopPrank();
+    }
+
+    function testGovOwnership() external {
+        vm.expectRevert("Ownable: caller is not the owner");
+        _sb.govQEEnableForTorex(ITorex(address(0)));
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        _sb.govQEUpdateTargetTotalEmissionRate(42);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        _sb.govQEUpdateTorexEmissionBoostFactor(ITorex(address(0)), 42);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        _sb.govUpdateLogic(SuperBoring(address(0)),
+                           SleepPod(address(0)),
+                           EmissionTreasury(address(0)),
+                           DistributionFeeManager(address(0)));
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        _sb.updateCode(address(0));
+    }
+
+    function testUpdateWithInvalidLogic() external {
+        address invalidContract = address(new InvalidLogicContract());
+        vm.startPrank(ADMIN);
+
+        vm.expectRevert("UUPSProxiable: not compatible logic");
+        _sb.govUpdateLogic(SuperBoring(invalidContract),
+                           SleepPod(address(0)),
+                           EmissionTreasury(address(0)),
+                           DistributionFeeManager(address(0)));
+
+        vm.expectRevert();
+        _sb.govUpdateLogic(SuperBoring(address(0)),
+                           SleepPod(invalidContract),
+                           EmissionTreasury(address(0)),
+                           DistributionFeeManager(address(0)));
+
+        vm.expectRevert("UUPSProxiable: not compatible logic");
+        _sb.govUpdateLogic(SuperBoring(address(0)),
+                           SleepPod(address(0)),
+                           EmissionTreasury(invalidContract),
+                           DistributionFeeManager(address(0)));
+
+        vm.expectRevert("UUPSProxiable: not compatible logic");
+        _sb.govUpdateLogic(SuperBoring(address(0)),
+                           SleepPod(address(0)),
+                           EmissionTreasury(address(0)),
+                           DistributionFeeManager(invalidContract));
+
+        vm.expectRevert("UUPSProxiable: not compatible logic");
+        _sb.updateCode(invalidContract);
+
+        vm.stopPrank();
     }
 }

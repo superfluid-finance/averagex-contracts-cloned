@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {
     ISuperToken, ISuperfluidPool, PoolConfig
@@ -9,6 +10,8 @@ import {
 import { SuperTokenV1Library } from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperTokenV1Library.sol";
 import { UUPSProxiable } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxiable.sol";
 import { UUPSProxy } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxy.sol";
+
+import { toInt96, INT_100PCT_PM } from "../libs/MathExtra.sol";
 
 
 /**
@@ -22,23 +25,15 @@ contract EmissionTreasury is UUPSProxiable, Ownable {
 
     event EmissionUnitsUpdated(address indexed emissionTarget, address member, uint128 units);
 
+    event EmissionBoostFactorUpdated(address indexed emissionTarget, uint256 factorPM);
+
     ISuperToken immutable public boringToken;
 
     mapping (address emissionTarget => ISuperfluidPool) private _emissionPools;
+    mapping (address emissionTarget => uint256 factorPM) private _boostFactors;
 
     constructor(ISuperToken token) {
         boringToken = token;
-    }
-
-    function ensurePoolCreatedFor(address emissionTarget) external
-        onlyOwner
-    {
-        if (address(_emissionPools[emissionTarget]) == address(0)) {
-            _emissionPools[emissionTarget] = boringToken.createPool(address(this), PoolConfig({
-                    transferabilityForUnitsOwner: false,
-                    distributionFromAnyAddress: false
-                    }));
-        }
     }
 
     /*******************************************************************************************************************
@@ -77,14 +72,24 @@ contract EmissionTreasury is UUPSProxiable, Ownable {
         return _emissionPools[emissionTarget].getMemberFlowRate(member);
     }
 
+    function getEmissionBoostFactor(address emissionTarget) external view returns (uint256)
+    {
+        return _boostFactors[emissionTarget];
+    }
+
     /*******************************************************************************************************************
-     * Emission Target Controls
+     * Emission Target Controls (onlyOwner)
      ******************************************************************************************************************/
 
     /// Update flow rate for the emission target.
     function updateEmissionRate(address emissionTarget, int96 emissionRate) external
         onlyOwner
     {
+        _ensurePoolCreatedFor(emissionTarget);
+        uint256 boostFactorPM = _boostFactors[emissionTarget];
+        if (boostFactorPM > 0) {
+            emissionRate = toInt96(int256(emissionRate) * SafeCast.toInt256(boostFactorPM) / INT_100PCT_PM);
+        }
         boringToken.distributeFlow(address(this), _emissionPools[emissionTarget], emissionRate);
         emit EmissionRateUpdated(emissionTarget, emissionRate);
     }
@@ -93,8 +98,16 @@ contract EmissionTreasury is UUPSProxiable, Ownable {
     function updateMemberEmissionUnits(address emissionTarget, address member, uint128 units) external
         onlyOwner
     {
+        _ensurePoolCreatedFor(emissionTarget);
         _emissionPools[emissionTarget].updateMemberUnits(member, units);
         emit EmissionUnitsUpdated(emissionTarget, member, units);
+    }
+
+    function updateEmissionBoostFactor(address emissionTarget, uint256 factorPM) external
+        onlyOwner
+    {
+        _boostFactors[emissionTarget] = factorPM;
+        emit EmissionBoostFactorUpdated(emissionTarget, factorPM);
     }
 
     /*******************************************************************************************************************
@@ -113,6 +126,17 @@ contract EmissionTreasury is UUPSProxiable, Ownable {
         onlyOwner
     {
         _updateCodeAddress(newAddress);
+    }
+
+    function _ensurePoolCreatedFor(address emissionTarget) internal
+        onlyOwner
+    {
+        if (address(_emissionPools[emissionTarget]) == address(0)) {
+            _emissionPools[emissionTarget] = boringToken.createPool(address(this), PoolConfig({
+                    transferabilityForUnitsOwner: false,
+                    distributionFromAnyAddress: false
+                    }));
+        }
     }
 }
 

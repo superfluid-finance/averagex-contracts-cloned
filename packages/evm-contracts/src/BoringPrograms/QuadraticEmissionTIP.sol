@@ -76,10 +76,9 @@ library QuadraticEmissionTIP {
         return SafeCast.toUint128(scaler.scaleValue(toUint256(flowRate)));
     }
 
-    function enableQEForTorex(EmissionTreasury emissionTreasury, ITorex torex) internal
+    function enableQEForTorex(ITorex torex) internal
     {
         EnumerableMap.set(_getStorage().torexQs, address(torex), 0);
-        emissionTreasury.ensurePoolCreatedFor(address(torex));
     }
 
     function isQEEnabledForTorex(ITorex torex) internal view returns (bool) {
@@ -199,8 +198,6 @@ library QuadraticEmissionTIP {
             emit EmissionUpdated(torex, emissionRate, q, $.qqSum);
         } // else make sure emission rate goes to zero if a torex is removed from the program.
 
-        if (emissionTreasury.getEmissionRate(address(torex)) != emissionRate) {
-            emissionTreasury.updateEmissionRate(address(torex), emissionRate);
-        }
+        emissionTreasury.updateEmissionRate(address(torex), emissionRate);
     }
 }

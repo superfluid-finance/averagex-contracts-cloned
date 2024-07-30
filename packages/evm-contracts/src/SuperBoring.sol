@@ -335,6 +335,9 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         // 3. Update the QE program.
         QuadraticEmissionTIP.onStakeUpdated(emissionTreasury, torex, oldStakedAmount, newStakedAmount);
 
+        // 4. Adjust emission right away
+        QuadraticEmissionTIP.adjustEmission(emissionTreasury, torex);
+
         emit StakeUpdated(torex, staker, newStakedAmount);
     }
 
@@ -502,7 +505,7 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         onlyOwner
         onlyRegisteredTorex(address(torex))
     {
-        QuadraticEmissionTIP.enableQEForTorex(emissionTreasury, torex);
+        QuadraticEmissionTIP.enableQEForTorex(torex);
     }
 
     function govQEUpdateTargetTotalEmissionRate(int96 r) external
@@ -511,14 +514,26 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         QuadraticEmissionTIP.updateTargetTotalEmissionRate(r);
     }
 
-    function govUpdateLogic(// SleepPod newSleepPodLogic, /* code size limit, deferred */
+    function govQEUpdateTorexEmissionBoostFactor(ITorex torex, uint256 f) external
+        onlyOwner
+    {
+        emissionTreasury.updateEmissionBoostFactor(address(torex), f);
+    }
+
+    function govUpdateLogic(SuperBoring newSuperBoringLogic,
+                            SleepPod newSleepPodLogic,
                             EmissionTreasury newEmissionTreasuryLogic,
                             DistributionFeeManager newDistributionFeeManagerLogic) external
         onlyOwner
     {
-        /* if (address(newSleepPodLogic) != address(0)) { */
-        /*     sleepPodBeacon.upgradeTo(address(newSleepPodLogic)); */
-        /* } */
+        if (address(newSuperBoringLogic) != address(0)) {
+            _updateCodeAddress(address(newSuperBoringLogic));
+        }
+        if (address(newSleepPodLogic) != address(0)) {
+            // sleepPodBeacon does not have the Superfluid extention, let's check the signature manually.
+            assert(newSleepPodLogic.proxiableUUID() == keccak256("SuperBoring.contracts.SleepPod"));
+            sleepPodBeacon.upgradeTo(address(newSleepPodLogic));
+        }
         if (address(newEmissionTreasuryLogic) != address(0)) {
             emissionTreasury.updateCode(address(newEmissionTreasuryLogic));
         }
@@ -566,4 +581,30 @@ function createSuperBoring(ISuperToken boringToken,
     sb.initializeProxy(address(logic));
 
     return SuperBoring(address(sb));
+}
+
+function createSuperBoringLogic(SuperBoring sb) returns (SuperBoring newLogic) {
+    return new SuperBoring(sb.boringToken(),
+                           sb.torexFactory(),
+                           sb.emissionTreasury(),
+                           sb.distributionFeeManager(),
+                           sb.sleepPodBeacon(),
+                           SuperBoring.Config({
+                               inTokenFeePM: sb.IN_TOKEN_FEE_PM(),
+                               minimumStakingAmount: sb.MINIMUM_STAKING_AMOUNT()
+                           }));
+}
+
+function createSleepPodLogic(SuperBoring sb) returns (SleepPod newLogic) {
+    SleepPod c = SleepPod(sb.sleepPodBeacon().implementation());
+    return new SleepPod(c.admin(), c.boringToken());
+}
+
+function createEmissionTreasuryLogic(SuperBoring sb) returns (EmissionTreasury newLogic) {
+    EmissionTreasury c = sb.emissionTreasury();
+    return new EmissionTreasury(c.boringToken());
+}
+
+function createDistributionFeeManagerLogic(SuperBoring /* not needed */) returns (DistributionFeeManager newLogic) {
+    return new DistributionFeeManager();
 }

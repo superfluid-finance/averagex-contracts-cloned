@@ -18,7 +18,11 @@ import { Torex, ITorexController } from "../src/Torex.sol";
 import { UniswapV3PoolTwapObserver, ITwapObserver } from "../src/UniswapV3PoolTwapObserver.sol";
 import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
 import { UnbridledX } from "../src/UnbridledX.sol";
-import { SuperBoring, createSuperBoring } from "../src/SuperBoring.sol";
+import {
+    SuperBoring, SleepPod,
+    createSuperBoring,
+    createSleepPodLogic, createEmissionTreasuryLogic, createDistributionFeeManagerLogic
+} from "../src/SuperBoring.sol";
 import { EmissionTreasury, createEmissionTreasury } from "../src/BoringPrograms/EmissionTreasury.sol";
 import { DistributionFeeManager, createDistributionFeeManager } from "../src/BoringPrograms/DistributionFeeManager.sol";
 
@@ -289,23 +293,45 @@ contract UpgradeSuperBoring is DeploymentScriptBase {
         _startBroadcast();
 
         SuperBoring sb = SuperBoring(vm.envAddress("SB_ADDRESS"));
-        // torex factory can be changed, optionally
-        TorexFactory torexFactory = TorexFactory(vm.envOr("SB_TOREX_FACTORY", address(sb.torexFactory())));
-        if (torexFactory != sb.torexFactory()) {
-            console.log("Upgrading to new torex factory %s", address(torexFactory));
+
+        SuperBoring newSBLogic;
+        SleepPod newSleepPodLogic;
+        EmissionTreasury newEmissionTreasuryLogic;
+        DistributionFeeManager newDistributionFeeManagerLogic;
+
+        if (vm.envOr("SB_DO_UPGRADE_SB_LOGIC", false)) {
+            TorexFactory torexFactory = TorexFactory(vm.envOr("SB_TOREX_FACTORY", address(sb.torexFactory())));
+            if (torexFactory != sb.torexFactory()) {
+                console.log("Upgrading to new torex factory %s", address(torexFactory));
+            }
+
+            newSBLogic = new SuperBoring(sb.boringToken(),
+                                         torexFactory,
+                                         sb.emissionTreasury(),
+                                         sb.distributionFeeManager(),
+                                         sb.sleepPodBeacon(),
+                                         SuperBoring.Config({
+                                             inTokenFeePM: sb.IN_TOKEN_FEE_PM(),
+                                             minimumStakingAmount: sb.MINIMUM_STAKING_AMOUNT()
+                                         }));
+        }
+        if (vm.envOr("SB_DO_UPGRADE_SLEEP_POD_LOGIC", false)) {
+            newSleepPodLogic = createSleepPodLogic(sb);
+            console2.log("Using new SleepPod logic %s", address(newSleepPodLogic));
+        }
+        if (vm.envOr("SB_DO_UPGRADE_EMISSION_TREASURY_LOGIC", false)) {
+            newEmissionTreasuryLogic = createEmissionTreasuryLogic(sb);
+            console2.log("Using new EmissionTreasury logic %s", address(newEmissionTreasuryLogic));
+        }
+        if (vm.envOr("SB_DO_UPGRADE_DISTRIBUTION_FEE_MANAGER_LOGIC", false)) {
+            newDistributionFeeManagerLogic = createDistributionFeeManagerLogic(sb);
+            console2.log("Using new DistributionFeeManager logic %s", address(newDistributionFeeManagerLogic));
         }
 
-        SuperBoring newSBLogic = new SuperBoring(sb.boringToken(),
-                                                 torexFactory,
-                                                 sb.emissionTreasury(),
-                                                 sb.distributionFeeManager(),
-                                                 sb.sleepPodBeacon(),
-                                                 SuperBoring.Config({
-                                                     inTokenFeePM: sb.IN_TOKEN_FEE_PM(),
-                                                     minimumStakingAmount: sb.MINIMUM_STAKING_AMOUNT()
-                                                 }));
-        sb.updateCode(address(newSBLogic));
+        // NOTE: you may need to use updateCode if this function signature changes.
+        sb.govUpdateLogic(newSBLogic, newSleepPodLogic, newEmissionTreasuryLogic, newDistributionFeeManagerLogic);
         console2.log("SuperBoring upgraded at %s", address(sb));
+        console2.log("  with code logic %s", sb.getCodeAddress());
         console2.log("  with token %s", address(sb.boringToken()));
         console2.log("  with torexFactory %s", address(sb.torexFactory()));
         console2.log("  with emissionTreasury %s", address(sb.emissionTreasury()));

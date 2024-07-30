@@ -1,5 +1,6 @@
 {
   "name": "evm-contracts",
+  "version": "0.1.0-rc4",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "main": "index.ts",
