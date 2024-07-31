@@ -53,11 +53,8 @@ contract SuperBoringTest is TorexTest {
                                 SuperBoring.Config({
                                     inTokenFeePM: 1_0000, // 1%
                                     minimumStakingAmount: 0 // no minimum staking amount for testing
-                                }));
-
-        _sb.initialize(ADMIN);
-        emissionTreasury.initialize(address(_sb));
-        distributionFeeManager.initialize(address(_sb));
+                                }),
+                                ADMIN /* sb owner */);
 
         vm.stopPrank();
     }
@@ -116,6 +113,21 @@ contract SuperBoringTorexTest is SuperBoringTest {
         _createTorex();
         _enableQEForDefaultTorex();
         _connectAllPools();
+    }
+
+    function testDoubleInitializations() external {
+        vm.expectRevert(bytes("Initializable: contract is already initialized"));
+        _sb.initialize(address(0));
+        {
+            EmissionTreasury c = _sb.emissionTreasury();
+            vm.expectRevert(bytes("Initializable: contract is already initialized"));
+            c.initialize(address(0));
+        }
+        {
+            DistributionFeeManager c = _sb.distributionFeeManager();
+            vm.expectRevert(bytes("Initializable: contract is already initialized"));
+            c.initialize(address(0));
+        }
     }
 
     function testF0tLtC0Z(int64 ps, uint24 dt0,

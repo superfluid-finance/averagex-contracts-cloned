@@ -561,15 +561,15 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
     }
 }
 
-/// Create the SuperBoring contract. !WARNING! It is uninitialized, operator must call .initialize(newOwner).
 function createSuperBoring(ISuperToken boringToken,
                            TorexFactory tokenFactory,
                            EmissionTreasury emissionTreasury,
                            DistributionFeeManager distributionFeeManager,
-                           SuperBoring.Config memory config) returns (SuperBoring) {
-    UUPSProxy sb = new UUPSProxy();
-    UpgradeableBeacon sleepPodBeacon = createSleepPodBeacon(address(sb), boringToken);
-    sleepPodBeacon.transferOwnership(address(sb));
+                           SuperBoring.Config memory config,
+                           address sbOwner) returns (SuperBoring sb) {
+    UUPSProxy sbProxy = new UUPSProxy();
+    UpgradeableBeacon sleepPodBeacon = createSleepPodBeacon(address(sbProxy), boringToken);
+    sleepPodBeacon.transferOwnership(address(sbProxy));
 
     SuperBoring logic = new SuperBoring(boringToken,
                                         tokenFactory,
@@ -578,9 +578,13 @@ function createSuperBoring(ISuperToken boringToken,
                                         sleepPodBeacon,
                                         config);
     logic.castrate();
-    sb.initializeProxy(address(logic));
+    sbProxy.initializeProxy(address(logic));
 
-    return SuperBoring(address(sb));
+    sb = SuperBoring(address(sbProxy));
+    sb.initialize(sbOwner);
+
+    emissionTreasury.initialize(address(sb));
+    distributionFeeManager.initialize(address(sb));
 }
 
 function createSuperBoringLogic(SuperBoring sb) returns (SuperBoring newLogic) {

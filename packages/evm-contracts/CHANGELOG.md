@@ -20,8 +20,10 @@ This is the version after completing the sherlock.xyz private auditing contest.
 
 **Torex**
 
+- Torex.VERSION: 1.0.0-rc3 -> 1.0.0-rc4
 - Torex to require 0.8.26 solc (#101).
-- Mark Torex VERSION 1.0.0-rc4.dev. !!WIP!!
+- ITorex interface now has VERSION function.
+- New error `Torex.LIQUIDITY_MOVER_NO_SAME_BLOCK` for disallowing LMEs in the same block.
 
 **SuperBoring**
 

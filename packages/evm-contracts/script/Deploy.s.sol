@@ -34,10 +34,10 @@ import { FakeLiquidityMover } from "../src/utils/FakeLiquidityMover.sol";
 
 
 abstract contract DeploymentScriptBase is Script {
-    uint256 internal constant CONTROLLER_SAFE_CALLBACK_GAS_LIMIT = 2e6;
-    uint256 internal constant MAX_TOREX_FEE_PM = 30_000;    // Maximum 3% fee for the Torex
-    uint256 internal constant DEFAULT_TOREX_FEE_PM = 5_000; // Default 0.5% fee
-    uint256 internal constant DEFAULT_MINIMUM_STAKING_AMUONT = 1e18; // Default 1 $BORING
+    uint256 internal constant CONTROLLER_SAFE_CALLBACK_GAS_LIMIT = 3e6;
+    uint256 internal constant MAX_TOREX_FEE_PM = 30_000;                // Maximum 3% fee for the Torex
+    uint256 internal constant DEFAULT_TOREX_FEE_PM = 5_000;             // Default 0.5% fee
+    uint256 internal constant DEFAULT_MINIMUM_STAKING_AMUONT = 1e18;    // Default 1 $BORING
     uint256 internal constant DEFAULT_INITIAL_AVG_SUPPLY = 1e6 ether;
 
     function _startBroadcast() internal returns (address deployer) {
@@ -263,7 +263,8 @@ contract DeploySuperBoring is DeploymentScriptBase {
                                            SuperBoring.Config({
                                                inTokenFeePM: inTokenFeePM,
                                                minimumStakingAmount: minimumStakingAmount
-                                           }));
+                                           }),
+                                           deployer /* sb owner */);
         console2.log("SuperBoring deployed at %s", address(sb));
         console2.log("  with boringToken %s", address(sb.boringToken()));
         console2.log("  with torexFactory %s", address(sb.torexFactory()));
@@ -272,15 +273,7 @@ contract DeploySuperBoring is DeploymentScriptBase {
         console2.log("  with sleepPodBeacon %s", address(sb.sleepPodBeacon()));
         console2.log("  with inTokenFeePM %d", sb.IN_TOKEN_FEE_PM());
         console2.log("  with minimumStakingAmount %s", sb.MINIMUM_STAKING_AMOUNT());
-
-        sb.initialize(deployer);
-        console2.log("SB.owner %s", sb.owner());
-
-        console2.log("Initialize emission treasury's ownership to SuperBoring");
-        emissionTreasury.initialize(address(sb));
-
-        console2.log("Initialize distribution fee manager's ownership to SuperBoring");
-        distributionFeeManager.initialize(address(sb));
+        console2.log("  with owner %s", sb.owner());
 
         _stopBroadcast();
     }
