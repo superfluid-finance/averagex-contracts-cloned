@@ -43,12 +43,12 @@
         };
         solhint = with pkgs; buildNpmPackage rec {
           pname = "solhint";
-          version = "5.0.2";
+          version = "5.0.3";
           src = fetchFromGitHub {
             owner = "protofire";
             repo = "solhint";
             rev = "v${version}";
-            hash = "sha256-FAKOGyQN45S9KJk1vWupz0Xj6sU6ozV57nt3KqkYe/I=";
+            hash = "sha256-uiVGbV66LzewMLBThNdtcjnBlCUFxTY94yDRFv7jdvw=";
           };
           npmDepsHash = "sha256-dNweOrXTS5lmnj7odCZsChysSYrWYRIPHk4KO1HVTG4=";
           dontNpmBuild = true;

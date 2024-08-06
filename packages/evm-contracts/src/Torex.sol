@@ -37,6 +37,10 @@ import { TorexCore } from "./TorexCore.sol";
  *
  * CHANGELOG:
  *
+ * [1.0.0] - 2024-08-06
+ *
+ * Mark VERSION "1.0.0".
+ *
  * [1.0.0-rc4] - 2024-07-31
  *
  * Changed:
@@ -68,7 +72,7 @@ import { TorexCore } from "./TorexCore.sol";
  * - Torex uses SuperTokenV1Library.getGDAFlowInfo in _onInFlowChanged.
  */
 contract Torex is TorexCore, CFASuperAppBase, ITorex {
-    string public constant override VERSION = "1.0.0-rc4";
+    string public constant override VERSION = "1.0.0";
 
     using SuperTokenV1Library for ISuperToken;
 
