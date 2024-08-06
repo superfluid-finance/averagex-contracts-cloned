@@ -55,6 +55,7 @@ contract SuperBoringTest is TorexTest {
                                     minimumStakingAmount: 0 // no minimum staking amount for testing
                                 }),
                                 ADMIN /* sb owner */);
+        _sb.govQEUpdateTargetTotalEmissionRate(TARGET_TOTAL_EMISSION_RATE);
 
         vm.stopPrank();
     }
@@ -70,12 +71,18 @@ contract SuperBoringTest is TorexTest {
     function _enableQEForDefaultTorex() internal {
         vm.startPrank(ADMIN);
 
+        _sb.govQEEnableForTorex(_torex);
+
+        vm.stopPrank();
+    }
+
+    function _bootstrapStakeForDefaultTorex() internal {
+        vm.startPrank(ADMIN);
+
         // a trick to fund admin's sleeping pod:
-        _sb.updateStake(_torex, 0); // ensure the pod is created.
+        _sb.updateStake(_torex, 0); // ensure the pod is created for ADMIN.
         _boringToken.transfer(address(_sb.getSleepPod(ADMIN)), 1e3 ether);
 
-        _sb.govQEUpdateTargetTotalEmissionRate(TARGET_TOTAL_EMISSION_RATE);
-        _sb.govQEEnableForTorex(_torex);
         // Bootstrap emission qqsum by staking at least some stake in it.
         // However, in order for the distributor fee to kick in, let's also
         // a) fit the scaler too,
@@ -112,6 +119,7 @@ contract SuperBoringTorexTest is SuperBoringTest {
         super.setUp();
         _createTorex();
         _enableQEForDefaultTorex();
+        _bootstrapStakeForDefaultTorex();
         _connectAllPools();
     }
 
@@ -243,6 +251,26 @@ contract SuperBoringMoreQETest is SuperBoringTest {
         _connectAllPools();
     }
 
+    function testNoQE() external {
+        _testChangeFlow(_toTester(0), int96(42e18) / 1 days);
+
+        _doAdvanceTime(1 hours);
+        _testMoveLiquidity();
+
+        _testChangeFlow(_toTester(0), 0);
+    }
+
+    function testQEWitoutBootstrap() external {
+        _enableQEForDefaultTorex();
+
+        _testChangeFlow(_toTester(0), int96(42e18) / 1 days);
+
+        _doAdvanceTime(1 hours);
+        _testMoveLiquidity();
+
+        _testChangeFlow(_toTester(0), 0);
+    }
+
     // Problematic case: QE is enabled after the TOREX has been used.
     function testLatentQE() external {
         _testChangeFlow(_toTester(0), int96(42e18) / 1 days);
@@ -252,9 +280,10 @@ contract SuperBoringMoreQETest is SuperBoringTest {
 
         _doAdvanceTime(1 hours);
         uint256 stakeable = _sb.getStakeableAmount(_toTester(0));
-        assertEq(stakeable, 0, "expect no stakes");
+        assertEq(stakeable, 0, "expect no rewards");
 
         _enableQEForDefaultTorex();
+        _bootstrapStakeForDefaultTorex();
         _testChangeFlow(_toTester(0), int96(69e18) / 1 days);
 
         _doAdvanceTime(1 hours);
@@ -262,7 +291,7 @@ contract SuperBoringMoreQETest is SuperBoringTest {
 
         _doAdvanceTime(1 hours);
         stakeable = _sb.getStakeableAmount(_toTester(0));
-        assertGt(stakeable, 0, "expect some stakes");
+        assertGt(stakeable, 0, "expect some rewards");
 
         _updateStake(_torex, 0, stakeable);
     }
@@ -273,6 +302,7 @@ contract SuperBoringReferralTest is SuperBoringTest {
         super.setUp();
         _createTorex();
         _enableQEForDefaultTorex();
+        _bootstrapStakeForDefaultTorex();
         _connectAllPools();
     }
 
@@ -367,6 +397,7 @@ contract SuperBoringDistributionFeeTest is SuperBoringTest {
         super.setUp();
         _createTorex();
         _enableQEForDefaultTorex();
+        _bootstrapStakeForDefaultTorex();
         _connectAllPools();
     }
 
@@ -452,6 +483,7 @@ contract SuperBoringTorexStatefulFuzzTest is SuperBoringTest {
         {
             _createTorex();
             _enableQEForDefaultTorex();
+            _bootstrapStakeForDefaultTorex();
             _connectAllPools();
         }
 

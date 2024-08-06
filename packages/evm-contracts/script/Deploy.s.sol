@@ -307,6 +307,7 @@ contract UpgradeSuperBoring is DeploymentScriptBase {
                                              inTokenFeePM: sb.IN_TOKEN_FEE_PM(),
                                              minimumStakingAmount: sb.MINIMUM_STAKING_AMOUNT()
                                          }));
+            console2.log("Using new SuperBoring logic %s", address(newSBLogic));
         }
         if (vm.envOr("SB_DO_UPGRADE_SLEEP_POD_LOGIC", false)) {
             newSleepPodLogic = createSleepPodLogic(sb);

@@ -51,7 +51,8 @@ This is the version after completing the sherlock.xyz private auditing contest.
   - fix a bug that creates pods for pods during flow update;
   - make referral logic more robust.
 - QE Bug: fix latent QE issue (#111).
-  - added new test case: testLatentQE.
+  - added new test contract: SuperBoringMoreQETest.
+  - ensure emission pool created in govQEEnableForTorex (#129)
 
 **Misc**
 

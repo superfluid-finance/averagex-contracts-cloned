@@ -506,6 +506,9 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         onlyRegisteredTorex(address(torex))
     {
         QuadraticEmissionTIP.enableQEForTorex(torex);
+        // !IMPORTANT! In a not-so-obvious look, this ensures that emission pool is created. Otherwise trading to the
+        // !Torex might be blocked.
+        emissionTreasury.updateEmissionRate(address(torex), 0);
     }
 
     function govQEUpdateTargetTotalEmissionRate(int96 r) external
