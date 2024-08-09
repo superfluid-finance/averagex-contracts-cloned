@@ -82,7 +82,7 @@ contract TorexControllerTest is TorexTest {
     function testTorexRC3Quirk() external {
         _testMoveLiquidity();
         assertEq(_torex.controllerInternalErrorCounter(), 0, "controllerInternalErrorCounter");
-        assertEq(_m.onLiquidityMovedCounter(), 1, "onInFlowChangedCounter");
+        assertEq(_m.onLiquidityMovedCounter(), 1, "onLiquidityMovedCounter");
     }
 
     function testOnLiquidityMovedFailure() external {

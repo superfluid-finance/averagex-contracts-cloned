@@ -5,18 +5,26 @@ All notable changes to the evm-contracts of SuperBoring (code name: AverageX) wi
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.1.0]
+## [v0.1.1-dev] TO BE RELEASED
+
+### Fixes
+
+**SuperBoring**
+
+- Improved _requireRC3Quirk using block number (#139).
+
+## [v0.1.0] 2024-08-06
 
 This is the version after completing the sherlock.xyz private auditing contest.
 
-## Added
+### Added
 
 **SuperBoring**
 
 - EmissionTreasury to support emission boost factor (#109).
 - SuperBoring.govUpdateLogic completed, and added test SuperBoringUpgradabilityTest (#109).
 
-## Changed
+### Changed
 
 **Torex**
 
@@ -33,7 +41,7 @@ This is the version after completing the sherlock.xyz private auditing contest.
 
 - Update to solc 0.8.26 (#101).
 
-## Fixes
+### Fixes
 
 **Torex**
 

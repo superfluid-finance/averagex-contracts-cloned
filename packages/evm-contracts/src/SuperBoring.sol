@@ -277,26 +277,8 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
     {
         ITorex torex = ITorex(msg.sender);
 
-        /* !!!!!!!!!!!!!!!!!!!! Torex 1.0.0-rc3 Quirk !!!!!!!!!!!!!!!!!!!!
-         * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
-        // NOTE:
-        // - For Torex 1.0.0-rc3, there was a bug that caused the callback to be called twice. This guard is to address
-        // such a quirk.
-        // - this can also be implemented differently using eip-1153, but that requires "cancun" availability.
-        bool[1] storage rc3guard;
-        // keccak256("onLiquidityMovedCalled")
-        // solhint-disable-next-line no-inline-assembly
-        assembly { rc3guard.slot := 0x5cf275d110f76ebbea56bbc343cc89db4174cffae57aaed7434ab7e73025c200 }
-        if (Strings.equal(torex.VERSION(), "1.0.0-rc3")) {
-            if (!rc3guard[0]) {
-                // The first time is a unsafe callback.
-                rc3guard[0] = true;
-                return true;
-            } else {
-                // the second time is a safe callback.
-                rc3guard[0] = false;
-            }
-        }
+        /* !!!!!!!!!!!!!!!!!!!! Torex 1.0.0-rc3 Quirk !!!!!!!!!!!!!!!!!!!! */
+        if (_requireRC3Quirk(torex)) return true;
         /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 
         // Let liquidity movers pay for the emission adjustment for each torex.
@@ -305,6 +287,31 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
         DistributionFeeDIP.adjustDistributionFeeUnits(distributionFeeManager, torex);
 
         return true;
+    }
+
+
+    /**
+     * @dev For Torex 1.0.0-rc3, there was a bug that caused the callback to be called twice. This guard is to address
+     * such a quirk. This can also be implemented differently using eip-1153, but that requires "cancun" availability.
+     */
+    function _requireRC3Quirk(ITorex torex) internal returns (bool) {
+        if (Strings.equal(torex.VERSION(), "1.0.0-rc3")) {
+            uint256[1] storage rc3guard;
+            // keccak256("onLiquidityMovedCalled.rc3guard")
+            // solhint-disable-next-line no-inline-assembly
+            assembly { rc3guard.slot := 0x1f659adfa28e67037987892f78d3ee72c2e697f69e1b4eba772ddc233478d708 }
+
+            // if the rc3guard having a different block number (0 or non-zero due to a failed callback)
+            if (rc3guard[0] != block.number) {
+                // The first time is a unsafe callback.
+                rc3guard[0] = block.number;
+                return true;
+            } else {
+                // the second time is a safe callback.
+                rc3guard[0] = 0;
+            }
+        }
+        return false;
     }
 
     /*******************************************************************************************************************
