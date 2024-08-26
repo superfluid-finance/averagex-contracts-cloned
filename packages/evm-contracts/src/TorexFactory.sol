@@ -40,7 +40,7 @@ contract TorexFactory {
 
         // register as SuperApp - on networks with permissioned SuperApp registration,
         // this requires the factory to be whitelisted
-        host.registerAppByFactory(torex, torex.getConfigWord(true, true, true));
+        host.registerApp(torex, torex.getConfigWord(true, true, true));
     }
 
     function createUniV3PoolTwapObserverAndTorex(UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] memory hops_,

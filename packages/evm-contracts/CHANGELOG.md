@@ -19,6 +19,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Improved _requireRC3Quirk using block number (#139).
 
+### Changed
+
+**TorexFactory**
+
+- Use `registerApp` instead (#175).
+
 ## [v0.1.0] 2024-08-06
 
 This is the version after completing the sherlock.xyz private auditing contest.
