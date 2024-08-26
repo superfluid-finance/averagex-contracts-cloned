@@ -264,6 +264,7 @@ export const cfAv1ForwarderConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xf28ba7108b96ff7d9bc43a302a504babda68be4b)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x750c3e12f26a998244ca9c95d300cc20f4dfb485)
  */
@@ -441,15 +442,18 @@ export const distributionFeeManagerABI = [
 ] as const
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xf28ba7108b96ff7d9bc43a302a504babda68be4b)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x750c3e12f26a998244ca9c95d300cc20f4dfb485)
  */
 export const distributionFeeManagerAddress = {
+  10: '0xf28ba7108B96ff7d9BC43a302A504BaBDA68Be4b',
   8453: '0xFdAd7082C6d2e07dD232be252bfD65841Ea1C83C',
   42220: '0x750c3E12F26A998244ca9c95d300Cc20F4Dfb485',
 } as const
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xf28ba7108b96ff7d9bc43a302a504babda68be4b)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x750c3e12f26a998244ca9c95d300cc20f4dfb485)
  */
@@ -463,6 +467,7 @@ export const distributionFeeManagerConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x14a201a50b3ffc7ca9851dd137aa47ff33924025)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x89795bb9aed5fa4c5c91815bb28db790ea7933c9)
  */
@@ -498,15 +503,6 @@ export const emissionTreasuryABI = [
     outputs: [],
   },
   {
-    stateMutability: 'nonpayable',
-    type: 'function',
-    inputs: [
-      { name: 'emissionTarget', internalType: 'address', type: 'address' },
-    ],
-    name: 'ensurePoolCreatedFor',
-    outputs: [],
-  },
-  {
     stateMutability: 'view',
     type: 'function',
     inputs: [],
@@ -514,6 +510,15 @@ export const emissionTreasuryABI = [
     outputs: [
       { name: 'codeAddress', internalType: 'address', type: 'address' },
     ],
+  },
+  {
+    stateMutability: 'view',
+    type: 'function',
+    inputs: [
+      { name: 'emissionTarget', internalType: 'address', type: 'address' },
+    ],
+    name: 'getEmissionBoostFactor',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
   },
   {
     stateMutability: 'view',
@@ -602,6 +607,16 @@ export const emissionTreasuryABI = [
     type: 'function',
     inputs: [
       { name: 'emissionTarget', internalType: 'address', type: 'address' },
+      { name: 'factorPM', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'updateEmissionBoostFactor',
+    outputs: [],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [
+      { name: 'emissionTarget', internalType: 'address', type: 'address' },
       { name: 'emissionRate', internalType: 'int96', type: 'int96' },
     ],
     name: 'updateEmissionRate',
@@ -636,6 +651,25 @@ export const emissionTreasuryABI = [
       },
     ],
     name: 'CodeUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'emissionTarget',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'factorPM',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'EmissionBoostFactorUpdated',
   },
   {
     type: 'event',
@@ -711,15 +745,18 @@ export const emissionTreasuryABI = [
 ] as const
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x14a201a50b3ffc7ca9851dd137aa47ff33924025)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x89795bb9aed5fa4c5c91815bb28db790ea7933c9)
  */
 export const emissionTreasuryAddress = {
+  10: '0xFdAd7082C6d2e07dD232be252bfD65841Ea1C83C',
   8453: '0x14a201A50b3FFC7ca9851DD137Aa47fF33924025',
   42220: '0x89795Bb9AEd5Fa4c5c91815Bb28DB790eA7933C9',
 } as const
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xfdad7082c6d2e07dd232be252bfd65841ea1c83c)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x14a201a50b3ffc7ca9851dd137aa47ff33924025)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x89795bb9aed5fa4c5c91815bb28db790ea7933c9)
  */
@@ -733,7 +770,7 @@ export const emissionTreasuryConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Gnosis Gnosis Chain Explorer__](https://blockscout.com/xdai/mainnet/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
@@ -1021,7 +1058,7 @@ export const gdAv1ForwarderABI = [
 ] as const
 
 /**
- * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Gnosis Gnosis Chain Explorer__](https://blockscout.com/xdai/mainnet/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
@@ -1038,7 +1075,7 @@ export const gdAv1ForwarderABI = [
  * - [__View Contract on Optimism Sepolia Blockscout__](https://optimism-sepolia.blockscout.com/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  */
 export const gdAv1ForwarderAddress = {
-  1: '0x0000000000000000000000000000000000000000',
+  1: '0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08',
   10: '0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08',
   56: '0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08',
   100: '0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08',
@@ -1057,7 +1094,7 @@ export const gdAv1ForwarderAddress = {
 } as const
 
 /**
- * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
  * - [__View Contract on Gnosis Gnosis Chain Explorer__](https://blockscout.com/xdai/mainnet/address/0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08)
@@ -1809,7 +1846,7 @@ export const ierc20ABI = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xAAdBB3Eee3Bd080f5353d86DdF1916aCA3fAC842)
  * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x68Ae17fa7a31b86F306c383277552fd4813b0d35)
  * - [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3bbFA4C406719424C7f66CD97A8Fe27Af383d3e2)
  * - [__View Contract on Gnosis Gnosis Chain Explorer__](https://blockscout.com/xdai/mainnet/address/0xd7992D358A20478c82dDEd98B3D8A9da46e99b82)
@@ -2413,7 +2450,7 @@ export const iGeneralDistributionAgreementV1ABI = [
 ] as const
 
 /**
- * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xAAdBB3Eee3Bd080f5353d86DdF1916aCA3fAC842)
  * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x68Ae17fa7a31b86F306c383277552fd4813b0d35)
  * - [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3bbFA4C406719424C7f66CD97A8Fe27Af383d3e2)
  * - [__View Contract on Gnosis Gnosis Chain Explorer__](https://blockscout.com/xdai/mainnet/address/0xd7992D358A20478c82dDEd98B3D8A9da46e99b82)
@@ -2430,7 +2467,7 @@ export const iGeneralDistributionAgreementV1ABI = [
  * - [__View Contract on Optimism Sepolia Blockscout__](https://optimism-sepolia.blockscout.com/address/0xd453d38A001B47271488886532f1CCeAbf0c7eF3)
  */
 export const iGeneralDistributionAgreementV1Address = {
-  1: '0x0000000000000000000000000000000000000000',
+  1: '0xAAdBB3Eee3Bd080f5353d86DdF1916aCA3fAC842',
   10: '0x68Ae17fa7a31b86F306c383277552fd4813b0d35',
   56: '0x3bbFA4C406719424C7f66CD97A8Fe27Af383d3e2',
   100: '0xd7992D358A20478c82dDEd98B3D8A9da46e99b82',
@@ -2449,7 +2486,7 @@ export const iGeneralDistributionAgreementV1Address = {
 } as const
 
 /**
- * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xAAdBB3Eee3Bd080f5353d86DdF1916aCA3fAC842)
  * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x68Ae17fa7a31b86F306c383277552fd4813b0d35)
  * - [__View Contract on Bnb Smart Chain Bsc Scan__](https://bscscan.com/address/0x3bbFA4C406719424C7f66CD97A8Fe27Af383d3e2)
  * - [__View Contract on Gnosis Gnosis Chain Explorer__](https://blockscout.com/xdai/mainnet/address/0xd7992D358A20478c82dDEd98B3D8A9da46e99b82)
@@ -3686,6 +3723,7 @@ export const isethABI = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xd9bfb8a24c8e1889787ea0f99d77c952a82bfe50)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x2112b92a4f6496b7b2f10850857ffa270464d054)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
  */
@@ -4876,15 +4914,18 @@ export const iSuperTokenABI = [
 ] as const
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xd9bfb8a24c8e1889787ea0f99d77c952a82bfe50)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x2112b92a4f6496b7b2f10850857ffa270464d054)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
  */
 export const iSuperTokenAddress = {
+  10: '0xd9bfb8A24c8E1889787Ea0f99D77C952a82Bfe50',
   8453: '0x2112b92A4f6496B7b2f10850857FfA270464d054',
   42220: '0x6C210F071c7246C452CAC7F8BaA6dA53907BbaE1',
 } as const
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0xd9bfb8a24c8e1889787ea0f99d77c952a82bfe50)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x2112b92a4f6496b7b2f10850857ffa270464d054)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0x6c210f071c7246c452cac7f8baa6da53907bbae1)
  */
@@ -6009,6 +6050,7 @@ export const iSuperfluidPoolABI = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x8eee2a69423509b6ca2eeb11c78936fbf1b89824)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x37d607bd9dfff80acf37184c1f27e88388914262)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xaca744453c178f3d651e06a3459e2f242aa01789)
  */
@@ -6287,7 +6329,7 @@ export const superBoringABI = [
       { name: 'torex', internalType: 'contract ITorex', type: 'address' },
       { name: 'trader', internalType: 'address', type: 'address' },
     ],
-    name: 'getCurrentReferrer',
+    name: 'getCurrentReferrerPod',
     outputs: [{ name: 'referrer', internalType: 'address', type: 'address' }],
   },
   {
@@ -6410,6 +6452,26 @@ export const superBoringABI = [
     stateMutability: 'nonpayable',
     type: 'function',
     inputs: [
+      { name: 'torex', internalType: 'contract ITorex', type: 'address' },
+      { name: 'f', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'govQEUpdateTorexEmissionBoostFactor',
+    outputs: [],
+  },
+  {
+    stateMutability: 'nonpayable',
+    type: 'function',
+    inputs: [
+      {
+        name: 'newSuperBoringLogic',
+        internalType: 'contract SuperBoring',
+        type: 'address',
+      },
+      {
+        name: 'newSleepPodLogic',
+        internalType: 'contract SleepPod',
+        type: 'address',
+      },
       {
         name: 'newEmissionTreasuryLogic',
         internalType: 'contract EmissionTreasury',
@@ -6671,7 +6733,7 @@ export const superBoringABI = [
         indexed: true,
       },
       {
-        name: 'trader',
+        name: 'traderPod',
         internalType: 'address',
         type: 'address',
         indexed: true,
@@ -6683,7 +6745,7 @@ export const superBoringABI = [
         indexed: false,
       },
       {
-        name: 'referrer',
+        name: 'referrerPod',
         internalType: 'address',
         type: 'address',
         indexed: true,
@@ -6773,15 +6835,18 @@ export const superBoringABI = [
 ] as const
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x8eee2a69423509b6ca2eeb11c78936fbf1b89824)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x37d607bd9dfff80acf37184c1f27e88388914262)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xaca744453c178f3d651e06a3459e2f242aa01789)
  */
 export const superBoringAddress = {
+  10: '0x8EeE2a69423509B6cA2EEB11C78936Fbf1B89824',
   8453: '0x37D607BD9dfFf80acf37184c1F27E88388914262',
   42220: '0xAcA744453C178F3D651e06A3459E2F242aa01789',
 } as const
 
 /**
+ * - [__View Contract on Op Mainnet Optimism Explorer__](https://explorer.optimism.io/address/0x8eee2a69423509b6ca2eeb11c78936fbf1b89824)
  * - [__View Contract on Base Basescan__](https://basescan.org/address/0x37d607bd9dfff80acf37184c1f27e88388914262)
  * - [__View Contract on Celo Celo Explorer__](https://explorer.celo.org/mainnet/address/0xaca744453c178f3d651e06a3459e2f242aa01789)
  */
@@ -7330,6 +7395,7 @@ export const torexABI = [
     ],
     name: 'TorexFlowUpdated',
   },
+  { type: 'error', inputs: [], name: 'LIQUIDITY_MOVER_NO_SAME_BLOCK' },
   {
     type: 'error',
     inputs: [],

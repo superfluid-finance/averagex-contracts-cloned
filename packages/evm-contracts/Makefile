@@ -19,6 +19,9 @@ test-ci:
 test-coverage:
 	FOUNDRY_PROFILE=coverage forge coverage
 
+test-fork:
+	FOUNDRY_TEST=fork-test forge test
+
 N_FUZZ_CONTRACT ?= SuperBoringTorexStatefulFuzzTest
 N_FUZZ_TEST ?= testStatefullFuzzComplete
 test-n-fuzz: build-evm-contracts

@@ -15,9 +15,8 @@ import { Scaler, getScaler10Pow } from "../src/libs/Scaler.sol";
 import { deployPureSuperToken } from "../src/libs/SuperTokenExtra.sol";
 
 import { Torex, ITorexController } from "../src/Torex.sol";
-import { UniswapV3PoolTwapObserver, ITwapObserver } from "../src/UniswapV3PoolTwapObserver.sol";
+import { UniswapV3PoolTwapHoppableObserver, ITwapObserver } from "../src/UniswapV3PoolTwapHoppableObserver.sol";
 import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
-import { UnbridledX } from "../src/UnbridledX.sol";
 import {
     SuperBoring, SleepPod,
     createSuperBoring,
@@ -39,6 +38,8 @@ abstract contract DeploymentScriptBase is Script {
     uint256 internal constant DEFAULT_TOREX_FEE_PM = 5_000;             // Default 0.5% fee
     uint256 internal constant DEFAULT_MINIMUM_STAKING_AMUONT = 1e18;    // Default 1 $BORING
     uint256 internal constant DEFAULT_INITIAL_AVG_SUPPLY = 1e6 ether;
+    uint8 internal constant MAX_HOPS = 4;
+
 
     function _startBroadcast() internal returns (address deployer) {
         uint256 deployerPrivKey = vm.envOr("PRIVKEY", uint256(0));
@@ -60,8 +61,9 @@ abstract contract DeploymentScriptBase is Script {
     }
 
     function _showGitRevision() internal {
-        string[] memory inputs = new string[](1);
+        string[] memory inputs = new string[](2);
         inputs[0] = "../../tasks/show-git-rev.sh";
+        inputs[1] = "forge_ffi_mode";
         try vm.ffi(inputs) returns (bytes memory res) {
             console.log("Git revision: %s", string(res));
         } catch {
@@ -113,15 +115,42 @@ contract UniswapV3PoolTwapObserverDeployer is DeploymentScriptBase {
     function run() external {
         _showGitRevision();
 
-        IUniswapV3Pool uniV3Pool = IUniswapV3Pool(vm.envAddress("TOREX_UNIV3POOL"));
-        bool reverseTokensOrder = vm.envOr("TOREX_REVERSE_TOKENS_ORDER", false);
+        IUniswapV3Pool[] memory pools = new IUniswapV3Pool[](MAX_HOPS);
+        bool[] memory poolsOrderReversed = new bool[](MAX_HOPS);
+
+        // TOREX_UNIV3POOL_${index} env vars must be filled sequentially
+        //      i.e. : var0 = ETH/USDC - var1 = ETH/DEGEN
+        //      if var0 = ETH/USDC - var1 = address(0) - var2 = ETH/DEGEN :
+        //      then the second hop (ETH/DEGEN) will be ignored resulting in a simple hop observer (ETH/USDC)
+        pools[0] = IUniswapV3Pool(vm.envOr("TOREX_UNIV3POOL_0", address(0)));
+        pools[1] = IUniswapV3Pool(vm.envOr("TOREX_UNIV3POOL_1", address(0)));
+        pools[2] = IUniswapV3Pool(vm.envOr("TOREX_UNIV3POOL_2", address(0)));
+        pools[3] = IUniswapV3Pool(vm.envOr("TOREX_UNIV3POOL_3", address(0)));
+
+        poolsOrderReversed[0] = vm.envOr("TOREX_REVERSE_TOKENS_ORDER_0", false);
+        poolsOrderReversed[1] = vm.envOr("TOREX_REVERSE_TOKENS_ORDER_1", false);
+        poolsOrderReversed[2] = vm.envOr("TOREX_REVERSE_TOKENS_ORDER_2", false);
+        poolsOrderReversed[3] = vm.envOr("TOREX_REVERSE_TOKENS_ORDER_3", false);
+
+        uint8 poolCount;
+
+        for(uint8 i = 0; i < MAX_HOPS; ++i) {
+            if(address(pools[i]) != address(0)) poolCount++;
+            else i = MAX_HOPS;
+        }
+
+        UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] memory hops = new UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[](poolCount);
+
+        for(uint8 i = 0; i < poolCount; ++i) {
+            hops[i] = UniswapV3PoolTwapHoppableObserver.UniV3PoolHop(pools[i], poolsOrderReversed[i]);
+        }
 
         _startBroadcast();
 
-        UniswapV3PoolTwapObserver obs = new UniswapV3PoolTwapObserver(uniV3Pool, reverseTokensOrder);
+        UniswapV3PoolTwapHoppableObserver obs = new UniswapV3PoolTwapHoppableObserver(hops);
         obs.transferOwnership(msg.sender);
-        console.log("UniswapV3PoolTwapObserver deployed at %s, with reverse order %d",
-                    address(obs), reverseTokensOrder);
+        console.log("UniswapV3PoolTwapHoppableObserver deployed at %s, with %d hops",
+                    address(obs), poolCount);
 
         _stopBroadcast();
     }
@@ -129,30 +158,87 @@ contract UniswapV3PoolTwapObserverDeployer is DeploymentScriptBase {
 
 abstract contract TwinTorexDeployer is DeploymentScriptBase {
     function deployTwinTorex(ITorexController controller,
-                             function (IUniswapV3Pool, bool, Torex.Config memory)
-                             internal returns (Torex) deploy) internal {
+                             function (int8 /* feePoolScalerN10Pow */, int8 /* boringPoolScalerN10Pow */,
+                                       UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] memory,
+                                       Torex.Config memory) internal returns (Torex) deploy
+                            ) internal {
         _startBroadcast();
 
-        IUniswapV3Pool uniV3Pool;
+        IUniswapV3Pool[] memory pools = new IUniswapV3Pool[](MAX_HOPS);
+        bool[] memory poolsOrderReversed = new bool[](MAX_HOPS);
+
+        pools[0] = IUniswapV3Pool(vm.envAddress("TOREX_UNIV3POOL_0"));
+        pools[1] = IUniswapV3Pool(vm.envOr("TOREX_UNIV3POOL_1", address(0)));
+        pools[2] = IUniswapV3Pool(vm.envOr("TOREX_UNIV3POOL_2", address(0)));
+        pools[3] = IUniswapV3Pool(vm.envOr("TOREX_UNIV3POOL_3", address(0)));
+        poolsOrderReversed[0] = vm.envOr("TOREX_REVERSE_TOKENS_ORDER_0", false);
+        poolsOrderReversed[1] = vm.envOr("TOREX_REVERSE_TOKENS_ORDER_1", false);
+        poolsOrderReversed[2] = vm.envOr("TOREX_REVERSE_TOKENS_ORDER_2", false);
+        poolsOrderReversed[3] = vm.envOr("TOREX_REVERSE_TOKENS_ORDER_3", false);
+
+        uint8 poolCount;
+
+        for(uint8 i = 0; i < MAX_HOPS; ++i) {
+            if (address(pools[i]) != address(0)) poolCount++;
+            else i = MAX_HOPS;
+        }
+
         Torex.Config memory config;
         {
-            uniV3Pool = IUniswapV3Pool(vm.envAddress("TOREX_UNIV3POOL"));
             ISuperToken superToken0 = ISuperToken(vm.envAddress("TOREX_SUPER_TOKEN0"));
             ISuperToken superToken1 = ISuperToken(vm.envAddress("TOREX_SUPER_TOKEN1"));
             uint32 discountModelTau = uint32(vm.envOr("TOREX_DISCOUNT_TAU", uint32(1 hours)));
             uint32 discountModelEpsilon = uint32(vm.envOr("TOREX_DISCOUNT_EPSILON", uint32(1_0000)));
 
             // Note: assuming it's an uniswap pool for underlying tokens.
-            require(_matchUnderlyingToken(superToken0, uniV3Pool.token0()), "Unmatching super token 0");
-            require(_matchUnderlyingToken(superToken1, uniV3Pool.token1()), "Unmatching super token 1");
+            address inTokenUnderlying = poolsOrderReversed[0] ?
+                pools[0].token1() : pools[0].token0();
+            require(_matchUnderlyingToken(superToken0, inTokenUnderlying), "Unmatching super token 0");
+
+            address outTokenUnderlying = poolsOrderReversed[poolCount - 1] ?
+                pools[poolCount - 1].token0() : pools[poolCount - 1].token1();
+            require(_matchUnderlyingToken(superToken1, outTokenUnderlying), "Unmatching super token 1");
 
             console.log("Torex controller is configured to %s", address(controller));
 
             console.log("Creating twin torexes with:");
-            console.log("  Uniswap v3 pool of token0 %s and token1 %s at %s",
-                        IERC20Metadata(uniV3Pool.token0()).symbol(),
-                        IERC20Metadata(uniV3Pool.token1()).symbol(),
-                        address(uniV3Pool));
+
+            if(poolCount > 1) {
+                console.log("  multi hop observer : ");
+                for(uint256 i = 0; i < poolCount; ++i) {
+                    console.log("    Pool %d :", i);
+                    console.log("      Uniswap v3 pool of token0 %s and token1 %s at %s",
+                                IERC20Metadata(pools[i].token0()).symbol(),
+                                IERC20Metadata(pools[i].token1()).symbol(),
+                                address(pools[i]));
+
+                    if(!poolsOrderReversed[i]) {
+                        console.log("      Trade Direction : %s -> %s",
+                                    IERC20Metadata(pools[i].token0()).symbol(),
+                                    IERC20Metadata(pools[i].token1()).symbol());
+                    } else {
+                        console.log("      Trade Direction : %s -> %s",
+                                    IERC20Metadata(pools[i].token1()).symbol(),
+                                    IERC20Metadata(pools[i].token0()).symbol());
+                    }
+                }
+            } else {
+                console.log("  single hop observer : ");
+                console.log("    Uniswap v3 pool of token0 %s and token1 %s at %s",
+                            IERC20Metadata(pools[0].token0()).symbol(),
+                            IERC20Metadata(pools[0].token1()).symbol(),
+                            address(pools[0]));
+                if(!poolsOrderReversed[0]) {
+                    console.log("      Trade Direction : %s -> %s",
+                                IERC20Metadata(pools[0].token0()).symbol(),
+                                IERC20Metadata(pools[0].token1()).symbol());
+                } else {
+                    console.log("      Trade Direction : %s -> %s",
+                                IERC20Metadata(pools[0].token1()).symbol(),
+                                IERC20Metadata(pools[0].token0()).symbol());
+                }
+            }
+
             console.log("  in-token  %s at %s", superToken0.symbol(), address(superToken0));
             console.log("  out-token %s at %s",  superToken1.symbol(), address(superToken1));
             console2.log(unicode"  discount model with τ (seconds) %d ε %d (per-million)",
@@ -173,19 +259,41 @@ abstract contract TwinTorexDeployer is DeploymentScriptBase {
 
         Torex torex;
         {
+            int8 feePoolScalerN10Pow = int8(vm.envInt("FEE_POOL_SCALER_N10POW_0"));
+            int8 boringPoolScalerN10Pow = int8(vm.envInt("BORING_POOL_SCALER_N10POW_0"));
             int8 outTokenDistributionPoolScalerN10Pow = int8(vm.envInt("OUT_TOKEN_POOL_SCALER_N10POW_0"));
+
             config.outTokenDistributionPoolScaler = getScaler10Pow(outTokenDistributionPoolScalerN10Pow);
 
-            torex = deploy(uniV3Pool, false, config);
+            UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] memory hops =
+                new UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[](poolCount);
+
+            for(uint8 i = 0; i < poolCount; ++i) {
+                hops[i] = UniswapV3PoolTwapHoppableObserver.UniV3PoolHop(pools[i], poolsOrderReversed[i]);
+            }
+
+            torex = deploy(feePoolScalerN10Pow, boringPoolScalerN10Pow, hops, config);
             console2.log("  with outTokenDistributionPoolScalerN10Pow", outTokenDistributionPoolScalerN10Pow);
         }
         {
+            int8 feePoolScalerN10Pow = int8(vm.envInt("FEE_POOL_SCALER_N10POW_1"));
+            int8 boringPoolScalerN10Pow = int8(vm.envInt("BORING_POOL_SCALER_N10POW_1"));
             int8 outTokenDistributionPoolScalerN10Pow = int8(vm.envInt("OUT_TOKEN_POOL_SCALER_N10POW_1"));
+
             config.outTokenDistributionPoolScaler = getScaler10Pow(outTokenDistributionPoolScalerN10Pow);
+
             // inverse token pair
             (config.outToken, config.inToken) = (config.inToken, config.outToken);
 
-            torex = deploy(uniV3Pool, true, config);
+            UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] memory hops =
+               new UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[](poolCount);
+
+            for(uint8 i = 0; i < poolCount; ++i) {
+                hops[i] = UniswapV3PoolTwapHoppableObserver.UniV3PoolHop
+                    (pools[poolCount - 1 - i], !poolsOrderReversed[poolCount - 1 - i]);
+            }
+
+            torex = deploy(feePoolScalerN10Pow, boringPoolScalerN10Pow, hops, config);
             console2.log("  with outTokenDistributionPoolScalerN10Pow", outTokenDistributionPoolScalerN10Pow);
         }
 
@@ -344,26 +452,17 @@ contract DeploySuperBoringTwinTorex is TwinTorexDeployer {
         deployTwinTorex(ITorexController(address(0)) /* to be set by SB directly */, _deploy);
     }
 
-    function _deploy(IUniswapV3Pool uniV3Pool, bool inverseOrder, Torex.Config memory config) internal
+    function _deploy(int8 feePoolScalerN10Pow, int8 boringPoolScalerN10Pow,
+                     UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] memory hops,
+                     Torex.Config memory config) internal
         returns (Torex torex)
     {
         SuperBoring sb = SuperBoring(vm.envAddress("SB_ADDRESS"));
-
         console.log("SuperBoring is at %s", address(sb));
-
-        int8 feePoolScalerN10Pow;
-        int8 boringPoolScalerN10Pow;
-        if (!inverseOrder) {
-            feePoolScalerN10Pow = int8(vm.envInt("FEE_POOL_SCALER_N10POW_0"));
-            boringPoolScalerN10Pow = int8(vm.envInt("BORING_POOL_SCALER_N10POW_0"));
-        } else {
-            feePoolScalerN10Pow = int8(vm.envInt("FEE_POOL_SCALER_N10POW_1"));
-            boringPoolScalerN10Pow = int8(vm.envInt("BORING_POOL_SCALER_N10POW_1"));
-        }
 
         torex = sb.createUniV3PoolTwapObserverAndTorex(config,
                                                        feePoolScalerN10Pow, boringPoolScalerN10Pow,
-                                                       uniV3Pool, inverseOrder);
+                                                       hops);
         console2.log("Torex created at %s by SuperBoring", address(torex));
         console2.log("  feePoolScalerN10Pow", feePoolScalerN10Pow);
         console2.log("  boringPoolScalerN10Pow", boringPoolScalerN10Pow);
@@ -404,49 +503,5 @@ contract FakeLiquidityMoverDeployer is DeploymentScriptBase {
         console.log("FakeLiquidityMover deployed at", address(flm));
 
         _stopBroadcast();
-    }
-}
-
-/***********************************************************************************************************************
- * Unbridled X (Stealth Launch)
- **********************************************************************************************************************/
-
-contract DeployUnbridledX is DeploymentScriptBase {
-    function run() external {
-        _showGitRevision();
-
-        _startBroadcast();
-
-        UnbridledX unbridledX = new UnbridledX();
-        console.log("UnbridledX deployed at", address(unbridledX));
-
-        _stopBroadcast();
-    }
-}
-
-contract DeployUnbridledTwinTorex is TwinTorexDeployer {
-    function run() external {
-        _showGitRevision();
-
-        deployTwinTorex(UnbridledX(vm.envAddress("UNBRIDLED_X")), _deploy);
-    }
-
-    function _deploy(IUniswapV3Pool uniV3Pool, bool inverseOrder, Torex.Config memory config) internal
-        returns (Torex torex)
-    {
-        UnbridledX unbridledX = UnbridledX(vm.envAddress("UNBRIDLED_X"));
-        uint256 torexFeePM = vm.envOr("TOREX_FEE_PM", DEFAULT_TOREX_FEE_PM);
-        address torexFeeDest = vm.envOr("TOREX_FEE_DEST", msg.sender);
-        TorexFactory factory = TorexFactory(vm.envAddress("TOREX_FACTORY"));
-
-        console.log("UnbridledX is at %s", address(unbridledX));
-        console.log("Torex factory is at %s", address(factory));
-
-        torex = factory.createUniV3PoolTwapObserverAndTorex(uniV3Pool, inverseOrder, config);
-        unbridledX.registerTorex(torex, torexFeePM, torexFeeDest);
-        console2.log("Torex created at %s, and registered to UnbridledX", address(torex));
-        console2.log("  with TWAP observer %s", address(torex.getConfig().observer));
-        console2.log("  and TWAP scaler", Scaler.unwrap(torex.getConfig().twapScaler));
-        console2.log("  torex fee to %s at %d per-million", torexFeeDest, uint256(torexFeePM));
     }
 }

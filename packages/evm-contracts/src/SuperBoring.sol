@@ -19,7 +19,8 @@ import { Scaler } from "./libs/Scaler.sol";
 
 import { ITorexController, ITorex, LiquidityMoveResult, TorexMetadata } from "./interfaces/torex/ITorex.sol";
 import { Torex } from "./Torex.sol";
-import { TorexFactory, IUniswapV3Pool } from "./TorexFactory.sol";
+import { TorexFactory } from "./TorexFactory.sol";
+import { UniswapV3PoolTwapHoppableObserver } from "./UniswapV3PoolTwapHoppableObserver.sol";
 
 import { BasicStakingTIP } from "./BoringPrograms/BasicStakingTIP.sol";
 import { SleepPod, createSleepPodBeacon } from "./BoringPrograms/SleepPod.sol";
@@ -164,22 +165,22 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
      * @param torexConfig Configuration for the torex.
      * @param feePoolScalerN10Pow Fee pool scaler set to 10**x
      * @param boringPoolScalerN10Pow Boring pool scaler set to 10**x
-     * @param uniV3Pool Optional uniswap V3 Pool, if provided, its TWAP oracle will be used for the TOREX.
-     * @param inverseOrder Inverse the token0 token1 for (inToken, outToken) pair of Torex.
+     * @param hops Uniswap V3 pools to Torex mapping configuration
      */
-    function createUniV3PoolTwapObserverAndTorex(Torex.Config memory torexConfig,
+    function createUniV3PoolTwapObserverAndTorex(Torex.Config calldata torexConfig,
                                                  int8 feePoolScalerN10Pow, int8 boringPoolScalerN10Pow,
-                                                 IUniswapV3Pool uniV3Pool, bool inverseOrder) public
+                                                 UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] calldata hops
+                                                ) external
         returns (Torex torex)
     {
         EnumerableSet.AddressSet storage $ = _getTorexRegistryStorage();
 
         assert(address(torexConfig.controller) == address(0)); // leave it to us
-        torexConfig.controller = this;
-        if (address(uniV3Pool) == address(0)) {
+        // Note: torexConfig.controller will be set to `this` by torexFactory logic
+        if (hops.length == 0) {
             torex = torexFactory.createTorex(torexConfig);
         } else {
-            torex = torexFactory.createUniV3PoolTwapObserverAndTorex(uniV3Pool, inverseOrder, torexConfig);
+            torex = torexFactory.createUniV3PoolTwapObserverAndTorex(hops, torexConfig);
         }
 
         $.add(address(torex));
@@ -271,7 +272,7 @@ contract SuperBoring is UUPSProxiable, Ownable, ITorexController, IDistributorSt
     }
 
     // @inheritdoc ITorexController
-    function onLiquidityMoved(LiquidityMoveResult memory) external override
+    function onLiquidityMoved(LiquidityMoveResult calldata) external override
         onlyRegisteredTorex(msg.sender)
         returns (bool)
     {

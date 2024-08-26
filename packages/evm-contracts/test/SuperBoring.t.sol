@@ -7,12 +7,13 @@ import { SuperTokenV1Library, deployPureSuperToken } from "../src/libs/SuperToke
 import { UINT_100PCT_PM } from "../src/libs/MathExtra.sol";
 import {
     SuperBoring,
-    ITorex, ISuperToken, ISuperfluidPool, IUniswapV3Pool, SleepPod,
+    ITorex, ISuperToken, ISuperfluidPool, SleepPod,
     createSuperBoring,
     createSuperBoringLogic, createSleepPodLogic, createEmissionTreasuryLogic, createDistributionFeeManagerLogic
 } from "../src/SuperBoring.sol";
 import { TorexFactory, createTorexFactory } from "../src/TorexFactory.sol";
 import { TorexCore } from "../src/TorexCore.sol";
+import { UniswapV3PoolTwapHoppableObserver } from "../src/UniswapV3PoolTwapHoppableObserver.sol";
 import {
     EmissionTreasury, createEmissionTreasury
 } from "../src/BoringPrograms/EmissionTreasury.sol";
@@ -64,7 +65,7 @@ contract SuperBoringTest is TorexTest {
         _torex = _sb.createUniV3PoolTwapObserverAndTorex(_createDefaultConfig(),
                                                          -12 /* feePoolScalerN10Pow */,
                                                          -12 /* boringPoolScalerN10Pow */,
-                                                         IUniswapV3Pool(address(0)), false /* inverseOrder */);
+                                                         new UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[](0));
         _expectedFeePM = _sb.IN_TOKEN_FEE_PM();
     }
 

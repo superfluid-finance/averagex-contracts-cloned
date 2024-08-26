@@ -14,14 +14,17 @@ const config = defineConfig({
                 SuperBoring: {
                     [chains.base.id]: "0x37d607bd9dfff80acf37184c1f27e88388914262",
                     [chains.celo.id]: "0xaca744453c178f3d651e06a3459e2f242aa01789",
+                    [chains.optimism.id]: "0x8eee2a69423509b6ca2eeb11c78936fbf1b89824",
                 },
                 EmissionTreasury: {
                     [chains.base.id]: "0x14a201a50b3ffc7ca9851dd137aa47ff33924025",
                     [chains.celo.id]: "0x89795bb9aed5fa4c5c91815bb28db790ea7933c9",
+                    [chains.optimism.id]: "0xfdad7082c6d2e07dd232be252bfd65841ea1c83c",
                 },
                 DistributionFeeManager: {
                     [chains.base.id]: "0xfdad7082c6d2e07dd232be252bfd65841ea1c83c",
                     [chains.celo.id]: "0x750c3e12f26a998244ca9c95d300cc20f4dfb485",
+                    [chains.optimism.id]: "0xf28ba7108b96ff7d9bc43a302a504babda68be4b"
                 },
                 ISuperfluid: {
                     ...metadata.networks.reduce(
@@ -37,6 +40,7 @@ const config = defineConfig({
                     // Reward Token
                     [chains.base.id]: "0x2112b92a4f6496b7b2f10850857ffa270464d054",
                     [chains.celo.id]: "0x6c210f071c7246c452cac7f8baa6da53907bbae1",
+                    [chains.optimism.id]: "0xd9bfb8a24c8e1889787ea0f99d77c952a82bfe50",
                 },
                 IConstantFlowAgreementV1: {
                     ...metadata.networks.reduce(

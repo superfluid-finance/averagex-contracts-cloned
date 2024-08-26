@@ -7,6 +7,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [v0.1.1-dev] TO BE RELEASED
 
+### Added
+
+**Torex**
+
+- Univ3 multi hop twap observer (#130).
+
 ### Fixes
 
 **SuperBoring**

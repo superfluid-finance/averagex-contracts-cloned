@@ -3,16 +3,16 @@ pragma solidity ^0.8.26;
 
 import { IERC20Metadata } from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 
-import { Torex, ISuperfluid } from "./Torex.sol";
-import { UniswapV3PoolTwapObserver, IUniswapV3Pool } from "./UniswapV3PoolTwapObserver.sol";
+import { Torex, ITorexController, ISuperfluid } from "./Torex.sol";
+import { UniswapV3PoolTwapHoppableObserver } from "./UniswapV3PoolTwapHoppableObserver.sol";
 import { Scaler, getScaler10Pow } from "../src/libs/Scaler.sol";
 
 
 contract UniswapV3PoolTwapObserverFactory {
-    function create(IUniswapV3Pool uniV3Pool, bool inverseOrder) external
-        returns (UniswapV3PoolTwapObserver o)
+    function create(UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] memory hops_) external
+        returns (UniswapV3PoolTwapHoppableObserver o)
     {
-        o = new UniswapV3PoolTwapObserver(uniV3Pool, inverseOrder);
+        o = new UniswapV3PoolTwapHoppableObserver(hops_);
         o.transferOwnership(msg.sender);
     }
 }
@@ -30,6 +30,11 @@ contract TorexFactory {
     function createTorex(Torex.Config memory config) public
         returns (Torex torex)
     {
+        // if controller is not set, we assume msg.sender to be the controller
+        if (address(config.controller) == address(0)) {
+            config.controller = ITorexController(msg.sender);
+        }
+
         torex = new Torex(config);
         ISuperfluid host = ISuperfluid(config.inToken.getHost());
 
@@ -38,7 +43,7 @@ contract TorexFactory {
         host.registerAppByFactory(torex, torex.getConfigWord(true, true, true));
     }
 
-    function createUniV3PoolTwapObserverAndTorex(IUniswapV3Pool uniV3Pool, bool inverseOrder,
+    function createUniV3PoolTwapObserverAndTorex(UniswapV3PoolTwapHoppableObserver.UniV3PoolHop[] memory hops_,
                                                  Torex.Config memory config) external
         returns (Torex torex)
     {
@@ -47,15 +52,22 @@ contract TorexFactory {
         assert(Scaler.unwrap(config.twapScaler) == 0);
 
         // creating the corresponding twap observer
-        UniswapV3PoolTwapObserver observer;
-        config.observer = observer = uniswapV3PoolTwapObserverFactory.create(uniV3Pool, inverseOrder);
-        if (inverseOrder) {
-            config.twapScaler = getScaler10Pow(int8(IERC20Metadata(uniV3Pool.token1()).decimals())
-                                               - int8(IERC20Metadata(uniV3Pool.token0()).decimals()));
-        } else {
-            config.twapScaler = getScaler10Pow(int8(IERC20Metadata(uniV3Pool.token0()).decimals())
-                                               - int8(IERC20Metadata(uniV3Pool.token1()).decimals()));
-        }
+        UniswapV3PoolTwapHoppableObserver observer;
+        config.observer = observer = uniswapV3PoolTwapObserverFactory.create(hops_);
+
+        // calculate the TWAP scaler
+        address inToken = hops_[0].inverseOrder
+            ? hops_[0].pool.token1()
+            : hops_[0].pool.token0();
+
+        uint256 lastHopIdx = hops_.length - 1;
+
+        address outToken = hops_[lastHopIdx].inverseOrder
+            ? hops_[lastHopIdx].pool.token0()
+            : hops_[lastHopIdx].pool.token1();
+
+        config.twapScaler = getScaler10Pow(int8(IERC20Metadata(inToken).decimals())
+                                           - int8(IERC20Metadata(outToken).decimals()));
 
         torex = createTorex(config);
         observer.transferOwnership(address(torex));
