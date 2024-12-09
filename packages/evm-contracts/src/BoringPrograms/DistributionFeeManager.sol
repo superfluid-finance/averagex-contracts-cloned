@@ -78,7 +78,7 @@ contract DistributionFeeManager is UUPSProxiable, Ownable {
         // distribute all in-tokens to distributors
         inToken.claimAll(torex.feeDistributionPool(), address(this));
         uint256 inTokenStored = inToken.balanceOf(address(this));
-        inToken.distributeToPool(address(this), pool, inTokenStored);
+        inToken.distribute(address(this), pool, inTokenStored);
 
         // claim for the distributor
         inToken.claimAll(pool, distributor);

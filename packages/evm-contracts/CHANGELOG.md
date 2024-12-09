@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 **Torex**
 
 - Univ3 multi hop twap observer (#130).
+- use registerApp (#175).
 
 ### Fixes
 
@@ -24,6 +25,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 **TorexFactory**
 
 - Use `registerApp` instead (#175).
+
+**Misc**
+
+- Support Superfluid Macros with SBMacros (#219)
 
 ## [v0.1.0] 2024-08-06
 

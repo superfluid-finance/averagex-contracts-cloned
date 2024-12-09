@@ -3,25 +3,23 @@
   "version": "0.1.1-dev",
   "license": "AGPL-3.0-or-later",
   "type": "module",
-  "main": "index.ts",
   "exports": {
     ".": {
       "default": "./index.ts"
     }
   },
+  "main": "index.ts",
   "scripts": {
-    "dev": "make dev",
     "build": "make build",
+    "dev": "make dev",
+    "generate-types": "wagmi generate",
     "lint": "make lint",
-    "test": "make test-ci",
-    "generate-types": "wagmi generate"
+    "test": "make test-ci"
   },
   "devDependencies": {
+    "@superfluid-finance/metadata": "^1.5.0",
+    "@types/bun": "^1.1.8",
     "@wagmi/cli": "^1.5.2",
-    "@superfluid-finance/metadata": "^1.2.6",
-    "bun-types": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.5.4"
   }
 }

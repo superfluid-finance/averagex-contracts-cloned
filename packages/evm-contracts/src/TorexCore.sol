@@ -155,7 +155,7 @@ abstract contract TorexCore is ReentrancyGuard {
         // NOTE: This could be more than outAmount.
         result.actualOutAmount = _outToken
             .estimateDistributionActualAmount(address(this), _outTokenDistributionPool, result.outAmount);
-        _outToken.distributeToPool(address(this), _outTokenDistributionPool, result.actualOutAmount);
+        _outToken.distribute(address(this), _outTokenDistributionPool, result.actualOutAmount);
     }
 
     /*******************************************************************************************************************
